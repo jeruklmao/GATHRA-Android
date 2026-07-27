@@ -41,6 +41,8 @@ android {
                 developmentRouteApiBaseUrl.get().asBuildConfigString(),
             )
             buildConfigField("boolean", "USE_FAKE_ROUTES", "false")
+            buildConfigField("boolean", "USE_FAKE_GEOCODING", "false")
+            buildConfigField("boolean", "ENABLE_NAVIGATION_SIMULATION", "false")
             manifestPlaceholders["usesCleartextTraffic"] = "true"
         }
         create("demo") {
@@ -53,6 +55,8 @@ android {
                 developmentRouteApiBaseUrl.get().asBuildConfigString(),
             )
             buildConfigField("boolean", "USE_FAKE_ROUTES", "true")
+            buildConfigField("boolean", "USE_FAKE_GEOCODING", "true")
+            buildConfigField("boolean", "ENABLE_NAVIGATION_SIMULATION", "true")
             manifestPlaceholders["usesCleartextTraffic"] = "true"
             matchingFallbacks += listOf("debug")
         }
@@ -66,6 +70,8 @@ android {
                 releaseRouteApiBaseUrl.get().asBuildConfigString(),
             )
             buildConfigField("boolean", "USE_FAKE_ROUTES", "false")
+            buildConfigField("boolean", "USE_FAKE_GEOCODING", "false")
+            buildConfigField("boolean", "ENABLE_NAVIGATION_SIMULATION", "false")
         }
     }
     compileOptions {
@@ -94,6 +100,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.maplibre.android)
+    implementation(libs.play.services.location)
     implementation(libs.okhttp)
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.kotlinx.serialization)

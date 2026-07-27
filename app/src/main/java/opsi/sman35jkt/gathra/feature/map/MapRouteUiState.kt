@@ -22,7 +22,11 @@ data class MapRouteUiState(
     val routeContentState: RouteContentState = RouteContentState.EMPTY,
     val locationPermissionState: LocationPermissionState = LocationPermissionState.NOT_REQUESTED,
     val isPermissionRationaleVisible: Boolean = false,
+    val isNavigationPermissionRequest: Boolean = false,
+    val hasShownNavigationDisclosure: Boolean = false,
     val isLocating: Boolean = false,
+    val locationSelectionTarget: PointSelectionMode? = null,
+    val currentLocationPoint: GeoPoint? = null,
     val bottomSheetState: RouteBottomSheetState = RouteBottomSheetState.COLLAPSED,
     val error: MapRouteError? = null,
 ) {

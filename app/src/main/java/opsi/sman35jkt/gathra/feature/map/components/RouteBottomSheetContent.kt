@@ -134,7 +134,7 @@ fun RouteBottomSheetContent(
                 .testTag(MapRouteTestTags.PreviewButton),
             shape = RoundedCornerShape(16.dp),
         ) {
-            Text(stringResource(R.string.preview))
+            Text(stringResource(R.string.start_navigation))
         }
     }
 }

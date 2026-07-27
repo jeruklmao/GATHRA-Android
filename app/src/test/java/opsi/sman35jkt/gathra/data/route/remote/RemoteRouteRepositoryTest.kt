@@ -192,6 +192,38 @@ class RemoteRouteRepositoryTest {
             distanceMeters = if (recommended) 4_000 else 4_400,
             durationSeconds = durationSeconds,
         ),
+        steps = listOf(
+            RouteStepResponseDto(
+                index = 0,
+                instruction = "Mulai mengikuti rute",
+                streetName = "Jalan Demo",
+                distanceMeters = if (recommended) 4_000 else 4_400,
+                durationSeconds = durationSeconds,
+                manoeuvre = RouteManeuverResponseDto(
+                    type = "DEPART",
+                    modifier = "STRAIGHT",
+                    bearingBefore = null,
+                    bearingAfter = 90,
+                ),
+                geometryStartIndex = 0,
+                geometryEndIndex = if (recommended) 1 else 2,
+            ),
+            RouteStepResponseDto(
+                index = 1,
+                instruction = "Anda telah tiba",
+                streetName = "",
+                distanceMeters = 0,
+                durationSeconds = 0,
+                manoeuvre = RouteManeuverResponseDto(
+                    type = "ARRIVE",
+                    modifier = "NONE",
+                    bearingBefore = 90,
+                    bearingAfter = null,
+                ),
+                geometryStartIndex = if (recommended) 1 else 2,
+                geometryEndIndex = if (recommended) 1 else 2,
+            ),
+        ),
     )
 
     private fun errorJson(code: String, retryable: Boolean) =

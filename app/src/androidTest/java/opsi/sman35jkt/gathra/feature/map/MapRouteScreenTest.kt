@@ -83,6 +83,43 @@ class MapRouteScreenTest {
         assertEquals(1, previewActions)
     }
 
+    @Test
+    fun tappingDestinationRequestsSearchInsteadOfRemovingMapFallback() {
+        var requestedMode: PointSelectionMode? = null
+        setReadyScreen { action ->
+            if (action is MapRouteAction.SearchRequested) {
+                requestedMode = action.mode
+            }
+        }
+
+        composeRule.onNodeWithTag(MapRouteTestTags.DestinationField)
+            .performClick()
+
+        assertEquals(PointSelectionMode.DESTINATION, requestedMode)
+    }
+
+    @Test
+    fun reverseGeocodedNameReplacesCoordinateLabel() {
+        val state = readyState().copy(
+            destination = readyState().destination?.copy(
+                displayName = "Jalan Karet Pasar Baru",
+            ),
+        )
+        composeRule.setContent {
+            GATHRATheme {
+                MapRouteScreen(
+                    state = state,
+                    snackbarHostState = SnackbarHostState(),
+                    onAction = {},
+                    mapContent = { _, _ -> Box(Modifier.fillMaxSize()) },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Jalan Karet Pasar Baru")
+            .assertIsDisplayed()
+    }
+
     private fun setReadyScreen(
         onAction: (MapRouteAction) -> Unit = {},
     ) {

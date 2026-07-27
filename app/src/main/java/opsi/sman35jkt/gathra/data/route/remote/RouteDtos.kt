@@ -29,6 +29,7 @@ internal data class RouteResponseDto(
     val isRecommended: Boolean,
     val geometry: GeoJsonLineStringDto,
     val summary: RouteSummaryResponseDto,
+    val steps: List<RouteStepResponseDto>,
 )
 
 @Serializable
@@ -41,6 +42,26 @@ internal data class GeoJsonLineStringDto(
 internal data class RouteSummaryResponseDto(
     val distanceMeters: Int,
     val durationSeconds: Int,
+)
+
+@Serializable
+internal data class RouteStepResponseDto(
+    val index: Int,
+    val instruction: String,
+    val streetName: String,
+    val distanceMeters: Int,
+    val durationSeconds: Int,
+    val manoeuvre: RouteManeuverResponseDto,
+    val geometryStartIndex: Int,
+    val geometryEndIndex: Int,
+)
+
+@Serializable
+internal data class RouteManeuverResponseDto(
+    val type: String,
+    val modifier: String,
+    val bearingBefore: Int?,
+    val bearingAfter: Int?,
 )
 
 @Serializable

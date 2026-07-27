@@ -1,10 +1,22 @@
 package opsi.sman35jkt.gathra.feature.map
 
 import opsi.sman35jkt.gathra.core.model.GeoPoint
+import opsi.sman35jkt.gathra.core.model.SelectedPlace
 import opsi.sman35jkt.gathra.core.model.TravelMode
 
 sealed interface MapRouteAction {
     data class StartPointSelection(val mode: PointSelectionMode) : MapRouteAction
+
+    data class SearchRequested(val mode: PointSelectionMode) : MapRouteAction
+
+    data class PlaceSelected(
+        val mode: PointSelectionMode,
+        val place: SelectedPlace,
+    ) : MapRouteAction
+
+    data class UseCurrentLocation(
+        val mode: PointSelectionMode,
+    ) : MapRouteAction
 
     data class MapPointTapped(val point: GeoPoint) : MapRouteAction
 

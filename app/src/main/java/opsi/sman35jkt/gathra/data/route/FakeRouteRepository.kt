@@ -2,9 +2,13 @@ package opsi.sman35jkt.gathra.data.route
 
 import kotlinx.coroutines.delay
 import opsi.sman35jkt.gathra.core.model.GeoPoint
+import opsi.sman35jkt.gathra.core.model.ManeuverModifier
+import opsi.sman35jkt.gathra.core.model.ManeuverType
 import opsi.sman35jkt.gathra.core.model.RouteGeometry
+import opsi.sman35jkt.gathra.core.model.RouteManeuver
 import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.RouteRequest
+import opsi.sman35jkt.gathra.core.model.RouteStep
 import opsi.sman35jkt.gathra.core.model.RouteSummary
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
@@ -100,6 +104,9 @@ class FakeRouteRepository(
                     TravelMode.MOTORCYCLE -> MINIMUM_MOTORCYCLE_ETA_MINUTES
                 },
             )
+        val durationSeconds = ceil(distanceMeters / metersPerMinute * 60.0)
+            .toInt()
+            .coerceAtLeast(1)
 
         return RouteOption(
             id = id,
@@ -107,8 +114,67 @@ class FakeRouteRepository(
             summary = RouteSummary(
                 distanceMeters = distanceMeters,
                 etaMinutes = etaMinutes,
+                durationSeconds = durationSeconds,
             ),
             isRecommended = isRecommended,
+            steps = createSteps(
+                geometry = geometry,
+                durationSeconds = durationSeconds,
+            ),
+        )
+    }
+
+    private fun createSteps(
+        geometry: RouteGeometry,
+        durationSeconds: Int,
+    ): List<RouteStep> {
+        val segmentDistances = geometry.points.zipWithNext(::distanceMeters)
+        val totalDistance = segmentDistances.sum().coerceAtLeast(1.0)
+        val stepDefinitions = listOf(
+            ManeuverType.DEPART to ManeuverModifier.STRAIGHT,
+            ManeuverType.SLIGHT_TURN to ManeuverModifier.SLIGHT_RIGHT,
+            ManeuverType.CONTINUE to ManeuverModifier.STRAIGHT,
+            ManeuverType.TURN to ManeuverModifier.LEFT,
+        )
+        val movementSteps = segmentDistances.mapIndexed { index, distance ->
+            val (type, modifier) = stepDefinitions[index]
+            RouteStep(
+                index = index,
+                instruction = when (type) {
+                    ManeuverType.DEPART -> "Mulai mengikuti rute"
+                    ManeuverType.SLIGHT_TURN -> "Ambil arah sedikit ke kanan"
+                    ManeuverType.TURN -> "Belok kiri"
+                    else -> "Lanjutkan perjalanan"
+                },
+                streetName = "Rute Demo GATHRA",
+                distanceMeters = distance.roundToInt().coerceAtLeast(1),
+                durationSeconds = (
+                    durationSeconds * (distance / totalDistance)
+                    ).roundToInt().coerceAtLeast(1),
+                maneuver = RouteManeuver(
+                    type = type,
+                    modifier = modifier,
+                    bearingBefore = null,
+                    bearingAfter = null,
+                ),
+                geometryStartIndex = index,
+                geometryEndIndex = index + 1,
+            )
+        }
+        return movementSteps + RouteStep(
+            index = movementSteps.size,
+            instruction = "Anda telah tiba di tujuan",
+            streetName = "",
+            distanceMeters = 0,
+            durationSeconds = 0,
+            maneuver = RouteManeuver(
+                type = ManeuverType.ARRIVE,
+                modifier = ManeuverModifier.NONE,
+                bearingBefore = null,
+                bearingAfter = null,
+            ),
+            geometryStartIndex = geometry.points.lastIndex,
+            geometryEndIndex = geometry.points.lastIndex,
         )
     }
 
