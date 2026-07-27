@@ -212,7 +212,7 @@ fun MapRouteScreen(
                         swapEnabled = state.origin != null && state.destination != null,
                         onOriginClick = {
                             onAction(
-                                MapRouteAction.StartPointSelection(
+                                MapRouteAction.SearchRequested(
                                     PointSelectionMode.ORIGIN,
                                 ),
                             )
@@ -224,7 +224,7 @@ fun MapRouteScreen(
                         },
                         onDestinationClick = {
                             onAction(
-                                MapRouteAction.StartPointSelection(
+                                MapRouteAction.SearchRequested(
                                     PointSelectionMode.DESTINATION,
                                 ),
                             )
@@ -282,6 +282,7 @@ private fun routePointLabel(
             },
         )
     }
+    point.displayName?.takeIf { it.isNotBlank() }?.let { return it }
     return when (point.source) {
         SelectionPointSource.CURRENT_LOCATION -> stringResource(R.string.current_location)
         SelectionPointSource.DEMO_FALLBACK -> if (isOrigin) {
@@ -289,7 +290,9 @@ private fun routePointLabel(
         } else {
             coordinateLabel(point)
         }
-        SelectionPointSource.MAP_SELECTION -> coordinateLabel(point)
+        SelectionPointSource.MAP_SELECTION,
+        SelectionPointSource.GEOCODING_SEARCH,
+        -> coordinateLabel(point)
     }
 }
 

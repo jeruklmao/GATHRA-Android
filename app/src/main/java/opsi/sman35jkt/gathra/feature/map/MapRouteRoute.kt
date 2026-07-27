@@ -52,6 +52,7 @@ private const val LOCATION_PERMISSION_REQUESTED = "foreground_requested"
 fun MapRouteRoute(
     viewModel: MapRouteViewModel,
     onStartNavigation: (RouteOption, GeoPoint, TravelMode) -> Boolean,
+    onOpenPlaceSearch: (PointSelectionMode, GeoPoint) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -245,6 +246,10 @@ fun MapRouteRoute(
                         MapRouteMessage.NAVIGATION_ROUTE_UNAVAILABLE ->
                             routeUnavailableMessage
                     },
+                )
+                is MapRouteEffect.OpenPlaceSearch -> onOpenPlaceSearch(
+                    effect.mode,
+                    effect.proximity,
                 )
                 is MapRouteEffect.StartNavigation -> {
                     val started = onStartNavigation(

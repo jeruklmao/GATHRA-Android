@@ -21,7 +21,9 @@ import opsi.sman35jkt.gathra.core.location.LocationRepository
 import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
 import opsi.sman35jkt.gathra.core.model.RouteRequest
 import opsi.sman35jkt.gathra.core.model.RouteSelectionPoint
+import opsi.sman35jkt.gathra.core.model.SelectedPlace
 import opsi.sman35jkt.gathra.core.model.SelectionPointSource
+import opsi.sman35jkt.gathra.domain.geocoding.GeocodingRepository
 import opsi.sman35jkt.gathra.domain.route.RouteFailureReason
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
 import opsi.sman35jkt.gathra.domain.route.RouteRepositoryException
@@ -29,6 +31,7 @@ import opsi.sman35jkt.gathra.domain.route.RouteRepositoryException
 class MapRouteViewModel(
     private val routeRepository: RouteRepository,
     private val locationRepository: LocationRepository,
+    private val geocodingRepository: GeocodingRepository,
     private val workDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
@@ -47,12 +50,20 @@ class MapRouteViewModel(
 
     private var routeCalculationJob: Job? = null
     private var locationLookupJob: Job? = null
+    private val reverseGeocodingJobs = mutableMapOf<PointSelectionMode, Job>()
     private val routeRequestGeneration = AtomicLong(0)
     private val locationRequestGeneration = AtomicLong(0)
 
     fun onAction(action: MapRouteAction) {
         when (action) {
             is MapRouteAction.StartPointSelection -> startPointSelection(action.mode)
+            is MapRouteAction.SearchRequested -> requestPlaceSearch(action.mode)
+            is MapRouteAction.PlaceSelected -> selectPlace(
+                action.mode,
+                action.place,
+            )
+            is MapRouteAction.UseCurrentLocation ->
+                onCurrentLocationClicked(action.mode)
             is MapRouteAction.MapPointTapped -> updatePendingPoint(action)
             MapRouteAction.ConfirmPointSelection -> confirmPointSelection()
             MapRouteAction.CancelPointSelection -> cancelPointSelection()
@@ -63,13 +74,15 @@ class MapRouteViewModel(
             is MapRouteAction.BottomSheetChanged -> {
                 _uiState.update { it.copy(bottomSheetState = action.state) }
             }
-            MapRouteAction.CurrentLocationClicked -> onCurrentLocationClicked()
+            MapRouteAction.CurrentLocationClicked ->
+                onCurrentLocationClicked(PointSelectionMode.ORIGIN)
             MapRouteAction.PermissionRationaleAccepted -> onPermissionRationaleAccepted()
             MapRouteAction.PermissionRationaleDismissed -> {
                 _uiState.update {
                     it.copy(
                         isPermissionRationaleVisible = false,
                         isNavigationPermissionRequest = false,
+                        locationSelectionTarget = null,
                     )
                 }
             }
@@ -90,6 +103,51 @@ class MapRouteViewModel(
                 error = null,
             )
         }
+    }
+
+    private fun requestPlaceSearch(mode: PointSelectionMode) {
+        _effects.tryEmit(
+            MapRouteEffect.OpenPlaceSearch(
+                mode = mode,
+                proximity = _uiState.value.currentLocationPoint
+                    ?: _uiState.value.origin?.point
+                    ?: JakartaDemoPoints.origin,
+            ),
+        )
+    }
+
+    private fun selectPlace(
+        mode: PointSelectionMode,
+        place: SelectedPlace,
+    ) {
+        if (!place.insideSupportedRegion) return
+        reverseGeocodingJobs.remove(mode)?.cancel()
+        if (mode == PointSelectionMode.ORIGIN) {
+            cancelPendingLocationLookup()
+        }
+        val selection = RouteSelectionPoint(
+            point = place.position,
+            source = SelectionPointSource.GEOCODING_SEARCH,
+            displayName = place.name,
+            formattedAddress = place.formattedAddress,
+        )
+        _uiState.update {
+            when (mode) {
+                PointSelectionMode.ORIGIN -> it.copy(
+                    origin = selection,
+                    pointSelectionMode = null,
+                    pendingPoint = null,
+                    error = null,
+                )
+                PointSelectionMode.DESTINATION -> it.copy(
+                    destination = selection,
+                    pointSelectionMode = null,
+                    pendingPoint = null,
+                    error = null,
+                )
+            }
+        }
+        calculateRoutes()
     }
 
     private fun updatePendingPoint(action: MapRouteAction.MapPointTapped) {
@@ -127,6 +185,7 @@ class MapRouteViewModel(
             }
         }
         calculateRoutes()
+        reverseGeocodeSelection(mode, selection)
     }
 
     private fun cancelPointSelection() {
@@ -150,6 +209,7 @@ class MapRouteViewModel(
             )
         }
         calculateRoutes()
+        restartPendingReverseGeocoding()
     }
 
     private fun selectTravelMode(action: MapRouteAction.TravelModeSelected) {
@@ -261,11 +321,12 @@ class MapRouteViewModel(
         }
     }
 
-    private fun onCurrentLocationClicked() {
+    private fun onCurrentLocationClicked(mode: PointSelectionMode) {
+        _uiState.update { it.copy(locationSelectionTarget = mode) }
         when (_uiState.value.locationPermissionState) {
             LocationPermissionState.PRECISE,
             LocationPermissionState.APPROXIMATE,
-            -> locateCurrentPosition()
+            -> locateCurrentPosition(mode)
 
             LocationPermissionState.PERMANENTLY_DENIED -> {
                 _effects.tryEmit(MapRouteEffect.OpenApplicationSettings)
@@ -278,6 +339,7 @@ class MapRouteViewModel(
                     it.copy(
                         isPermissionRationaleVisible = true,
                         isNavigationPermissionRequest = false,
+                        locationSelectionTarget = mode,
                     )
                 }
             }
@@ -319,7 +381,10 @@ class MapRouteViewModel(
     }
 
     private fun onLocationPermissionResult(action: MapRouteAction.LocationPermissionResult) {
-        val navigationStartPending = _uiState.value.isNavigationPermissionRequest
+        val stateBeforeUpdate = _uiState.value
+        val navigationStartPending = stateBeforeUpdate.isNavigationPermissionRequest
+        val locationTarget =
+            stateBeforeUpdate.locationSelectionTarget ?: PointSelectionMode.ORIGIN
         val permissionState = when {
             action.preciseGranted -> LocationPermissionState.PRECISE
             action.approximateGranted -> LocationPermissionState.APPROXIMATE
@@ -353,7 +418,7 @@ class MapRouteViewModel(
             if (navigationStartPending) {
                 emitNavigationStart()
             } else {
-                locateCurrentPosition()
+                locateCurrentPosition(locationTarget)
             }
         } else {
             cancelPendingLocationLookup()
@@ -425,7 +490,7 @@ class MapRouteViewModel(
         )
     }
 
-    private fun locateCurrentPosition() {
+    private fun locateCurrentPosition(target: PointSelectionMode) {
         locationLookupJob?.cancel()
         val generation = locationRequestGeneration.incrementAndGet()
         _uiState.update {
@@ -449,14 +514,28 @@ class MapRouteViewModel(
             when (result) {
                 is LocationLookupResult.Success -> {
                     _uiState.update {
-                        it.copy(
-                            origin = RouteSelectionPoint(
-                                point = result.point,
-                                source = SelectionPointSource.CURRENT_LOCATION,
-                            ),
-                            isLocating = false,
-                            error = null,
+                        val selection = RouteSelectionPoint(
+                            point = result.point,
+                            source = SelectionPointSource.CURRENT_LOCATION,
+                            displayName = null,
+                            formattedAddress = null,
                         )
+                        when (target) {
+                            PointSelectionMode.ORIGIN -> it.copy(
+                                origin = selection,
+                                currentLocationPoint = result.point,
+                                locationSelectionTarget = null,
+                                isLocating = false,
+                                error = null,
+                            )
+                            PointSelectionMode.DESTINATION -> it.copy(
+                                destination = selection,
+                                currentLocationPoint = result.point,
+                                locationSelectionTarget = null,
+                                isLocating = false,
+                                error = null,
+                            )
+                        }
                     }
                     calculateRoutes()
                 }
@@ -466,6 +545,7 @@ class MapRouteViewModel(
                         it.copy(
                             locationPermissionState = LocationPermissionState.DENIED,
                             isLocating = false,
+                            locationSelectionTarget = null,
                         )
                     }
                 }
@@ -474,6 +554,7 @@ class MapRouteViewModel(
                     _uiState.update {
                         it.copy(
                             isLocating = false,
+                            locationSelectionTarget = null,
                         )
                     }
                     _effects.tryEmit(
@@ -485,6 +566,7 @@ class MapRouteViewModel(
                     _uiState.update {
                         it.copy(
                             isLocating = false,
+                            locationSelectionTarget = null,
                         )
                     }
                     _effects.tryEmit(
@@ -512,12 +594,82 @@ class MapRouteViewModel(
         locationLookupJob?.cancel()
         locationLookupJob = null
         locationRequestGeneration.incrementAndGet()
-        _uiState.update { it.copy(isLocating = false) }
+        _uiState.update {
+            it.copy(
+                isLocating = false,
+                locationSelectionTarget = null,
+            )
+        }
+    }
+
+    private fun reverseGeocodeSelection(
+        mode: PointSelectionMode,
+        selection: RouteSelectionPoint,
+    ) {
+        reverseGeocodingJobs.remove(mode)?.cancel()
+        reverseGeocodingJobs[mode] = viewModelScope.launch {
+            val place = try {
+                geocodingRepository.reverse(selection.point)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                null
+            } ?: return@launch
+
+            _uiState.update { state ->
+                val current = when (mode) {
+                    PointSelectionMode.ORIGIN -> state.origin
+                    PointSelectionMode.DESTINATION -> state.destination
+                }
+                if (
+                    current?.point != selection.point ||
+                    current.source != SelectionPointSource.MAP_SELECTION
+                ) {
+                    state
+                } else {
+                    val labelled = current.copy(
+                        // Deliberately ignore place.position. Reverse geocoding
+                        // is display metadata only.
+                        displayName = place.name,
+                        formattedAddress = place.formattedAddress,
+                    )
+                    when (mode) {
+                        PointSelectionMode.ORIGIN ->
+                            state.copy(origin = labelled)
+                        PointSelectionMode.DESTINATION ->
+                            state.copy(destination = labelled)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun restartPendingReverseGeocoding() {
+        reverseGeocodingJobs.values.forEach(Job::cancel)
+        reverseGeocodingJobs.clear()
+        val state = _uiState.value
+        state.origin
+            ?.takeIf {
+                it.source == SelectionPointSource.MAP_SELECTION &&
+                    it.displayName == null
+            }
+            ?.let {
+                reverseGeocodeSelection(PointSelectionMode.ORIGIN, it)
+            }
+        state.destination
+            ?.takeIf {
+                it.source == SelectionPointSource.MAP_SELECTION &&
+                    it.displayName == null
+            }
+            ?.let {
+                reverseGeocodeSelection(PointSelectionMode.DESTINATION, it)
+            }
     }
 
     override fun onCleared() {
         routeCalculationJob?.cancel()
         locationLookupJob?.cancel()
+        reverseGeocodingJobs.values.forEach(Job::cancel)
         super.onCleared()
     }
 }

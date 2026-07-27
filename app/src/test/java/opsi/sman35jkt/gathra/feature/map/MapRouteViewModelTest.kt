@@ -19,6 +19,8 @@ import opsi.sman35jkt.gathra.core.model.RouteRequest
 import opsi.sman35jkt.gathra.core.model.SelectionPointSource
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import opsi.sman35jkt.gathra.data.route.FakeRouteRepository
+import opsi.sman35jkt.gathra.data.geocoding.FakeGeocodingRepository
+import opsi.sman35jkt.gathra.domain.geocoding.GeocodingRepository
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
 import opsi.sman35jkt.gathra.domain.route.RouteFailureReason
 import opsi.sman35jkt.gathra.domain.route.RouteRepositoryException
@@ -345,9 +347,13 @@ class MapRouteViewModelTest {
     private fun createViewModel(
         routeRepository: RouteRepository = RecordingRouteRepository(),
         locationRepository: LocationRepository = StubLocationRepository(),
+        geocodingRepository: GeocodingRepository = FakeGeocodingRepository(
+                loadingDelayMillis = 0,
+            ),
     ): MapRouteViewModel = MapRouteViewModel(
         routeRepository = routeRepository,
         locationRepository = locationRepository,
+        geocodingRepository = geocodingRepository,
         workDispatcher = StandardTestDispatcher(),
     )
 

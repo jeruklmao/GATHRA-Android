@@ -11,6 +11,11 @@ sealed interface MapRouteEffect {
 
     data class ShowMessage(val message: MapRouteMessage) : MapRouteEffect
 
+    data class OpenPlaceSearch(
+        val mode: PointSelectionMode,
+        val proximity: GeoPoint,
+    ) : MapRouteEffect
+
     data class StartNavigation(
         val route: RouteOption,
         val destination: GeoPoint,

@@ -41,6 +41,7 @@ android {
                 developmentRouteApiBaseUrl.get().asBuildConfigString(),
             )
             buildConfigField("boolean", "USE_FAKE_ROUTES", "false")
+            buildConfigField("boolean", "USE_FAKE_GEOCODING", "false")
             buildConfigField("boolean", "ENABLE_NAVIGATION_SIMULATION", "false")
             manifestPlaceholders["usesCleartextTraffic"] = "true"
         }
@@ -54,6 +55,7 @@ android {
                 developmentRouteApiBaseUrl.get().asBuildConfigString(),
             )
             buildConfigField("boolean", "USE_FAKE_ROUTES", "true")
+            buildConfigField("boolean", "USE_FAKE_GEOCODING", "true")
             buildConfigField("boolean", "ENABLE_NAVIGATION_SIMULATION", "true")
             manifestPlaceholders["usesCleartextTraffic"] = "true"
             matchingFallbacks += listOf("debug")
@@ -68,6 +70,7 @@ android {
                 releaseRouteApiBaseUrl.get().asBuildConfigString(),
             )
             buildConfigField("boolean", "USE_FAKE_ROUTES", "false")
+            buildConfigField("boolean", "USE_FAKE_GEOCODING", "false")
             buildConfigField("boolean", "ENABLE_NAVIGATION_SIMULATION", "false")
         }
     }

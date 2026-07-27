@@ -5,11 +5,14 @@ import opsi.sman35jkt.gathra.core.location.LocationRepository
 import opsi.sman35jkt.gathra.data.location.AndroidLocationRepository
 import opsi.sman35jkt.gathra.data.location.FusedNavigationLocationSource
 import opsi.sman35jkt.gathra.data.location.SimulatedNavigationLocationSource
+import opsi.sman35jkt.gathra.data.geocoding.FakeGeocodingRepository
+import opsi.sman35jkt.gathra.data.geocoding.remote.GeocodingNetworkFactory
 import opsi.sman35jkt.gathra.data.navigation.NavigationSessionEngine
 import opsi.sman35jkt.gathra.data.navigation.NavigationSessionRepository
 import opsi.sman35jkt.gathra.data.route.FakeRouteRepository
 import opsi.sman35jkt.gathra.data.route.remote.RouteNetworkFactory
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
+import opsi.sman35jkt.gathra.domain.geocoding.GeocodingRepository
 import opsi.sman35jkt.gathra.service.navigation.NavigationServiceController
 
 class AppContainer(context: Context) {
@@ -22,6 +25,15 @@ class AppContainer(context: Context) {
     } else {
         RouteNetworkFactory.createRepository(BuildConfig.ROUTE_API_BASE_URL)
     }
+
+    val geocodingRepository: GeocodingRepository =
+        if (BuildConfig.USE_FAKE_GEOCODING) {
+            FakeGeocodingRepository()
+        } else {
+            GeocodingNetworkFactory.createRepository(
+                BuildConfig.ROUTE_API_BASE_URL,
+            )
+        }
 
     val navigationSessionRepository = NavigationSessionRepository()
 

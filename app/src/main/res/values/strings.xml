@@ -10,8 +10,32 @@
     <string name="choose_destination_on_map">Pilih tujuan di peta</string>
     <string name="coordinate_label">%1$.4f, %2$.4f</string>
     <string name="swap_points">Tukar titik awal dan tujuan</string>
-    <string name="origin_accessibility">Titik awal: %1$s. Ketuk untuk memilih di peta.</string>
-    <string name="destination_accessibility">Tujuan: %1$s. Ketuk untuk memilih di peta.</string>
+    <string name="origin_accessibility">Titik awal: %1$s. Ketuk untuk mencari lokasi atau memilih di peta.</string>
+    <string name="destination_accessibility">Tujuan: %1$s. Ketuk untuk mencari lokasi atau memilih di peta.</string>
+
+    <string name="geocoding_search_origin">Cari titik awal</string>
+    <string name="geocoding_search_destination">Cari tujuan</string>
+    <string name="geocoding_close_search">Tutup pencarian lokasi</string>
+    <string name="geocoding_current_location">Lokasi saat ini</string>
+    <string name="geocoding_current_location_description">Gunakan posisi perangkat untuk kolom ini.</string>
+    <string name="geocoding_current_location_accessibility">Gunakan lokasi perangkat saat ini</string>
+    <string name="geocoding_choose_on_map">Pilih titik di peta</string>
+    <string name="geocoding_choose_on_map_description">Tentukan koordinat secara manual tanpa pencarian.</string>
+    <string name="geocoding_choose_on_map_accessibility">Tutup pencarian dan pilih titik secara manual di peta</string>
+    <string name="geocoding_searching">Mencari lokasi…</string>
+    <string name="geocoding_no_results">Lokasi tidak ditemukan</string>
+    <string name="geocoding_no_results_body">Coba nama jalan, tempat, atau kawasan yang berbeda.</string>
+    <string name="geocoding_search_hint">Cari jalan, sekolah, rumah sakit, tempat, atau kawasan.</string>
+    <string name="geocoding_keep_typing">Ketik sedikitnya 3 karakter untuk melihat saran.</string>
+    <string name="geocoding_invalid_query">Kata pencarian terlalu singkat</string>
+    <string name="geocoding_offline">Tidak ada koneksi ke layanan pencarian</string>
+    <string name="geocoding_timeout">Pencarian membutuhkan waktu terlalu lama</string>
+    <string name="geocoding_place_not_found">Detail lokasi tidak ditemukan</string>
+    <string name="geocoding_service_unavailable">Layanan pencarian tidak tersedia</string>
+    <string name="geocoding_error_body">Titik dan rute yang sudah dipilih tetap tersimpan. Coba lagi beberapa saat.</string>
+    <string name="geocoding_outside_region">Di luar wilayah layanan GATHRA</string>
+    <string name="geocoding_suggestion_accessibility">%1$s. %2$s</string>
+    <string name="geocoding_suggestion_outside_accessibility">%1$s. Di luar wilayah layanan GATHRA dan tidak dapat dipilih.</string>
 
     <string name="select_origin_instruction">Ketuk peta untuk memilih titik awal</string>
     <string name="select_destination_instruction">Ketuk peta untuk memilih tujuan</string>
