@@ -1,9 +1,11 @@
 package opsi.sman35jkt.gathra.data.route.remote
 
 import kotlin.math.ceil
+import opsi.sman35jkt.gathra.core.model.FloodRiskLevel
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.ManeuverModifier
 import opsi.sman35jkt.gathra.core.model.ManeuverType
+import opsi.sman35jkt.gathra.core.model.RouteFloodRisk
 import opsi.sman35jkt.gathra.core.model.RouteGeometry
 import opsi.sman35jkt.gathra.core.model.RouteManeuver
 import opsi.sman35jkt.gathra.core.model.RouteOption
@@ -125,6 +127,26 @@ internal object RouteDtoMapper {
             requireValid(steps.last().maneuver.type == ManeuverType.ARRIVE)
             requireValid(steps.last().geometryEndIndex == points.lastIndex)
 
+            val riskDomain = route.risk?.let { riskDto ->
+                val level = FloodRiskLevel.entries.firstOrNull { it.name == riskDto.level }
+                    ?: FloodRiskLevel.UNKNOWN
+                requireValid(riskDto.score in 0.0..1.0)
+                requireValid(riskDto.affectedDistanceMeters >= 0)
+                requireValid(riskDto.confidence == null || riskDto.confidence in 0.0..1.0)
+
+                RouteFloodRisk(
+                    level = level,
+                    score = riskDto.score,
+                    intersectsBlockedArea = riskDto.intersectsBlockedArea,
+                    affectedDistanceMeters = riskDto.affectedDistanceMeters,
+                    confidence = riskDto.confidence,
+                    reasonCodes = riskDto.reasonCodes,
+                    evaluatedAtEpochMillis = parseIsoToEpochMillis(riskDto.evaluatedAt),
+                    validUntilEpochMillis = parseIsoToEpochMillis(riskDto.validUntil),
+                    hazardSnapshotId = riskDto.hazardSnapshotId,
+                )
+            }
+
             RouteOption(
                 id = route.id,
                 geometry = RouteGeometry(points),
@@ -136,10 +158,22 @@ internal object RouteDtoMapper {
                     durationSeconds = route.summary.durationSeconds,
                 ),
                 isRecommended = route.isRecommended,
+                risk = riskDomain,
                 steps = steps,
             )
         }
     }
+
+    private fun parseIsoToEpochMillis(isoString: String?): Long? {
+        if (isoString.isNullOrBlank()) return null
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            runCatching { java.time.Instant.parse(isoString).toEpochMilli() }.getOrNull()
+        } else {
+            null
+        }
+    }
+
+    private fun String?.isNullOrBlank(): Boolean = this == null || this.isBlank()
 
     private inline fun <reified T : Enum<T>> enumValueOrInvalid(value: String): T =
         enumValues<T>().firstOrNull { it.name == value }

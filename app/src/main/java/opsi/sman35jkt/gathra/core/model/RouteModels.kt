@@ -1,5 +1,38 @@
 package opsi.sman35jkt.gathra.core.model
 
+enum class FloodRiskLevel {
+    LOW,
+    MEDIUM,
+    HIGH,
+    BLOCKED,
+    UNKNOWN,
+    NOT_EVALUATED,
+}
+
+data class RouteFloodRisk(
+    val level: FloodRiskLevel,
+    val score: Double,
+    val intersectsBlockedArea: Boolean,
+    val affectedDistanceMeters: Int,
+    val confidence: Double?,
+    val reasonCodes: List<String>,
+    val evaluatedAtEpochMillis: Long?,
+    val validUntilEpochMillis: Long?,
+    val hazardSnapshotId: String?,
+) {
+    init {
+        require(score in 0.0..1.0) {
+            "Risk score must be between 0.0 and 1.0."
+        }
+        require(affectedDistanceMeters >= 0) {
+            "Affected distance cannot be negative."
+        }
+        require(confidence == null || confidence in 0.0..1.0) {
+            "Confidence must be between 0.0 and 1.0 if present."
+        }
+    }
+}
+
 data class RouteGeometry(
     val points: List<GeoPoint>,
 ) {
@@ -105,6 +138,7 @@ data class RouteOption(
     val geometry: RouteGeometry,
     val summary: RouteSummary,
     val isRecommended: Boolean = false,
+    val risk: RouteFloodRisk? = null,
     val steps: List<RouteStep> = emptyList(),
 ) {
     init {

@@ -1,9 +1,11 @@
 package opsi.sman35jkt.gathra.data.route
 
 import kotlinx.coroutines.delay
+import opsi.sman35jkt.gathra.core.model.FloodRiskLevel
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.ManeuverModifier
 import opsi.sman35jkt.gathra.core.model.ManeuverType
+import opsi.sman35jkt.gathra.core.model.RouteFloodRisk
 import opsi.sman35jkt.gathra.core.model.RouteGeometry
 import opsi.sman35jkt.gathra.core.model.RouteManeuver
 import opsi.sman35jkt.gathra.core.model.RouteOption
@@ -69,6 +71,17 @@ class FakeRouteRepository(
                 travelMode = request.travelMode,
                 isRecommended = true,
                 speedAdjustment = 1.0,
+                risk = RouteFloodRisk(
+                    level = FloodRiskLevel.LOW,
+                    score = 0.12,
+                    intersectsBlockedArea = false,
+                    affectedDistanceMeters = 0,
+                    confidence = 0.90,
+                    reasonCodes = listOf("NO_ACTIVE_FLOOD_INTERSECTION"),
+                    evaluatedAtEpochMillis = null,
+                    validUntilEpochMillis = null,
+                    hazardSnapshotId = "demo-snapshot",
+                ),
             ),
             createRouteOption(
                 id = ALTERNATIVE_ROUTE_ID,
@@ -76,6 +89,17 @@ class FakeRouteRepository(
                 travelMode = request.travelMode,
                 isRecommended = false,
                 speedAdjustment = ALTERNATIVE_SPEED_ADJUSTMENT,
+                risk = RouteFloodRisk(
+                    level = FloodRiskLevel.MEDIUM,
+                    score = 0.45,
+                    intersectsBlockedArea = false,
+                    affectedDistanceMeters = 350,
+                    confidence = 0.85,
+                    reasonCodes = listOf("FLOOD_HAZARD_INTERSECTION"),
+                    evaluatedAtEpochMillis = null,
+                    validUntilEpochMillis = null,
+                    hazardSnapshotId = "demo-snapshot",
+                ),
             ),
         )
     }
@@ -86,6 +110,7 @@ class FakeRouteRepository(
         travelMode: TravelMode,
         isRecommended: Boolean,
         speedAdjustment: Double,
+        risk: RouteFloodRisk,
     ): RouteOption {
         val distanceMeters = geometry.points
             .zipWithNext(::distanceMeters)
@@ -117,6 +142,7 @@ class FakeRouteRepository(
                 durationSeconds = durationSeconds,
             ),
             isRecommended = isRecommended,
+            risk = risk,
             steps = createSteps(
                 geometry = geometry,
                 durationSeconds = durationSeconds,
