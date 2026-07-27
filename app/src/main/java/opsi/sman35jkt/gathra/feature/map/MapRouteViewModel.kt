@@ -66,15 +66,16 @@ class MapRouteViewModel(
             MapRouteAction.CurrentLocationClicked -> onCurrentLocationClicked()
             MapRouteAction.PermissionRationaleAccepted -> onPermissionRationaleAccepted()
             MapRouteAction.PermissionRationaleDismissed -> {
-                _uiState.update { it.copy(isPermissionRationaleVisible = false) }
+                _uiState.update {
+                    it.copy(
+                        isPermissionRationaleVisible = false,
+                        isNavigationPermissionRequest = false,
+                    )
+                }
             }
             is MapRouteAction.LocationPermissionResult -> onLocationPermissionResult(action)
             MapRouteAction.ErrorDismissed -> dismissError()
-            MapRouteAction.PreviewClicked -> {
-                _effects.tryEmit(
-                    MapRouteEffect.ShowMessage(MapRouteMessage.NAVIGATION_COMING_LATER),
-                )
-            }
+            MapRouteAction.PreviewClicked -> requestNavigationStart()
         }
     }
 
@@ -274,18 +275,51 @@ class MapRouteViewModel(
             LocationPermissionState.DENIED,
             -> {
                 _uiState.update {
-                    it.copy(isPermissionRationaleVisible = true)
+                    it.copy(
+                        isPermissionRationaleVisible = true,
+                        isNavigationPermissionRequest = false,
+                    )
                 }
             }
         }
     }
 
     private fun onPermissionRationaleAccepted() {
-        _uiState.update { it.copy(isPermissionRationaleVisible = false) }
-        _effects.tryEmit(MapRouteEffect.RequestForegroundLocationPermission)
+        val state = _uiState.value
+        val isNavigationDisclosure = state.isNavigationPermissionRequest
+        _uiState.update {
+            it.copy(
+                isPermissionRationaleVisible = false,
+                isNavigationPermissionRequest = if (
+                    isNavigationDisclosure &&
+                    state.locationPermissionState in setOf(
+                        LocationPermissionState.PRECISE,
+                        LocationPermissionState.APPROXIMATE,
+                    )
+                ) {
+                    false
+                } else {
+                    it.isNavigationPermissionRequest
+                },
+                hasShownNavigationDisclosure =
+                    it.hasShownNavigationDisclosure || isNavigationDisclosure,
+            )
+        }
+        if (
+            isNavigationDisclosure &&
+            state.locationPermissionState in setOf(
+                LocationPermissionState.PRECISE,
+                LocationPermissionState.APPROXIMATE,
+            )
+        ) {
+            emitNavigationStart()
+        } else {
+            _effects.tryEmit(MapRouteEffect.RequestForegroundLocationPermission)
+        }
     }
 
     private fun onLocationPermissionResult(action: MapRouteAction.LocationPermissionResult) {
+        val navigationStartPending = _uiState.value.isNavigationPermissionRequest
         val permissionState = when {
             action.preciseGranted -> LocationPermissionState.PRECISE
             action.approximateGranted -> LocationPermissionState.APPROXIMATE
@@ -300,6 +334,7 @@ class MapRouteViewModel(
             it.copy(
                 locationPermissionState = permissionState,
                 isPermissionRationaleVisible = false,
+                isNavigationPermissionRequest = false,
                 origin = if (shouldRestoreDemoOrigin) {
                     RouteSelectionPoint(
                         point = JakartaDemoPoints.origin,
@@ -315,13 +350,79 @@ class MapRouteViewModel(
             permissionState == LocationPermissionState.PRECISE ||
             permissionState == LocationPermissionState.APPROXIMATE
         ) {
-            locateCurrentPosition()
+            if (navigationStartPending) {
+                emitNavigationStart()
+            } else {
+                locateCurrentPosition()
+            }
         } else {
             cancelPendingLocationLookup()
             if (shouldRestoreDemoOrigin) {
                 calculateRoutes()
             }
         }
+    }
+
+    private fun requestNavigationStart() {
+        val state = _uiState.value
+        val route = state.selectedRoute
+        if (
+            route == null ||
+            state.destination == null ||
+            route.steps.isEmpty()
+        ) {
+            _effects.tryEmit(
+                MapRouteEffect.ShowMessage(
+                    MapRouteMessage.NAVIGATION_ROUTE_UNAVAILABLE,
+                ),
+            )
+            return
+        }
+
+        if (!state.hasShownNavigationDisclosure) {
+            _uiState.update {
+                it.copy(
+                    isPermissionRationaleVisible = true,
+                    isNavigationPermissionRequest = true,
+                )
+            }
+            return
+        }
+
+        when (state.locationPermissionState) {
+            LocationPermissionState.PRECISE,
+            LocationPermissionState.APPROXIMATE,
+            -> emitNavigationStart()
+
+            LocationPermissionState.PERMANENTLY_DENIED -> {
+                _effects.tryEmit(MapRouteEffect.OpenApplicationSettings)
+            }
+
+            LocationPermissionState.NOT_REQUESTED,
+            LocationPermissionState.DENIED,
+            -> {
+                _uiState.update {
+                    it.copy(
+                        isPermissionRationaleVisible = true,
+                        isNavigationPermissionRequest = true,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun emitNavigationStart() {
+        val state = _uiState.value
+        val route = state.selectedRoute ?: return
+        val destination = state.destination?.point ?: return
+        if (route.steps.isEmpty()) return
+        _effects.tryEmit(
+            MapRouteEffect.StartNavigation(
+                route = route,
+                destination = destination,
+                travelMode = state.selectedTravelMode,
+            ),
+        )
     }
 
     private fun locateCurrentPosition() {

@@ -18,6 +18,10 @@ data class GathraMapColors(
     val originMarker: Color,
     val destinationMarker: Color,
     val pendingMarker: Color,
+    val completedRoute: Color,
+    val navigationPuck: Color,
+    val navigationAccuracy: Color,
+    val navigationRawLocation: Color,
 )
 
 private val LightMapColors = GathraMapColors(
@@ -27,6 +31,10 @@ private val LightMapColors = GathraMapColors(
     originMarker = OriginMarkerLight,
     destinationMarker = DestinationMarkerLight,
     pendingMarker = PendingMarkerLight,
+    completedRoute = RouteCompletedLight,
+    navigationPuck = NavigationPuckLight,
+    navigationAccuracy = NavigationAccuracyLight,
+    navigationRawLocation = NavigationRawLocationLight,
 )
 
 private val DarkMapColors = GathraMapColors(
@@ -36,6 +44,10 @@ private val DarkMapColors = GathraMapColors(
     originMarker = OriginMarkerDark,
     destinationMarker = DestinationMarkerDark,
     pendingMarker = PendingMarkerDark,
+    completedRoute = RouteCompletedDark,
+    navigationPuck = NavigationPuckDark,
+    navigationAccuracy = NavigationAccuracyDark,
+    navigationRawLocation = NavigationRawLocationDark,
 )
 
 private val LocalGathraMapColors = staticCompositionLocalOf { LightMapColors }

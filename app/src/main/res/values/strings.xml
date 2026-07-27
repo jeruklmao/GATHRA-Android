@@ -50,8 +50,8 @@
     <string name="eta_minutes">%1$d mnt</string>
     <string name="distance_kilometers">%1$.1f km</string>
     <string name="route_option_accessibility" tools:ignore="PluralsCandidate">%1$s, %2$d menit, %3$.1f kilometer</string>
-    <string name="preview">Pratinjau</string>
-    <string name="preview_later_message">Navigasi langkah demi langkah akan hadir pada tahap berikutnya.</string>
+    <string name="start_navigation">Mulai</string>
+    <string name="navigation_route_unavailable">Rute ini belum memiliki petunjuk navigasi. Hitung ulang rute lalu coba lagi.</string>
     <string name="expand_route_sheet">Perluas ringkasan rute</string>
     <string name="collapse_route_sheet">Ciutkan ringkasan rute</string>
 
@@ -63,6 +63,7 @@
 
     <string name="permission_rationale_title">Gunakan lokasi Anda?</string>
     <string name="permission_rationale_body">GATHRA memakai lokasi hanya saat aplikasi terbuka untuk menentukan titik awal. Anda tetap dapat memakai titik demo Jakarta atau memilih titik secara manual.</string>
+    <string name="navigation_permission_rationale_body">GATHRA memerlukan lokasi langsung selama sesi navigasi aktif untuk menghitung kemajuan, mendeteksi penyimpangan, dan memberi petunjuk berikutnya. Lokasi berhenti digunakan saat navigasi dihentikan.</string>
     <string name="permission_continue">Lanjutkan</string>
     <string name="permission_not_now">Nanti saja</string>
     <string name="permission_denied_notice">Izin lokasi ditolak. Mode demo Jakarta tetap aktif.</string>
@@ -73,4 +74,82 @@
     <string name="continue_demo">Lanjutkan mode demo</string>
 
     <string name="map_accessibility">Peta interaktif GATHRA. Ketuk peta saat memilih titik.</string>
+
+    <string name="navigation_brand">GATHRA · NAVIGASI</string>
+    <string name="navigation_preparing">Menyiapkan navigasi…</string>
+    <string name="navigation_preparing_body">Mencari posisi dan menyiapkan petunjuk.</string>
+    <string name="navigation_recalculating">Menghitung ulang rute…</string>
+    <string name="navigation_recalculating_body">Rute lama tetap ditampilkan.</string>
+    <string name="navigation_off_route">Anda keluar dari rute</string>
+    <string name="navigation_off_route_body">Tetap berjalan dengan aman sementara rute diperbarui.</string>
+    <string name="navigation_gps_unavailable">Sinyal lokasi tidak tersedia</string>
+    <string name="navigation_gps_unavailable_body">Periksa GPS dan izin lokasi untuk melanjutkan.</string>
+    <string name="navigation_error">Rute baru belum tersedia</string>
+    <string name="navigation_error_body">Navigasi tetap memakai rute sebelumnya.</string>
+    <string name="navigation_retry_reroute">Coba lagi</string>
+    <string name="navigation_arrived">Anda telah tiba</string>
+    <string name="navigation_arrived_body">Navigasi selesai.</string>
+    <string name="navigation_finish">Selesai</string>
+    <string name="navigation_no_instruction">Lanjutkan mengikuti rute</string>
+    <string name="navigation_current_road">Saat ini · %1$s</string>
+    <string name="navigation_unnamed_road">Jalan tanpa nama</string>
+    <string name="navigation_distance_meters">%1$d m</string>
+    <string name="navigation_distance_kilometers">%1$.1f km</string>
+    <string name="navigation_eta_minutes">%1$d mnt</string>
+    <string name="navigation_remaining_eta_label">Waktu</string>
+    <string name="navigation_remaining_distance_label">Jarak</string>
+    <string name="navigation_arrival_label">Tiba</string>
+    <string name="navigation_location_good">GPS baik</string>
+    <string name="navigation_location_approximate">Lokasi perkiraan</string>
+    <string name="navigation_location_weak">Akurasi GPS rendah</string>
+    <string name="navigation_location_unavailable">GPS tidak tersedia</string>
+    <string name="navigation_recenter">Kembali mengikuti posisi</string>
+    <string name="navigation_overview">Tampilkan seluruh rute</string>
+    <string name="navigation_follow">Kembali ke tampilan mengikuti</string>
+    <string name="navigation_map_accessibility">Peta navigasi GATHRA yang menampilkan rute, posisi, dan kemajuan perjalanan.</string>
+    <string name="navigation_mute">Bisukan petunjuk</string>
+    <string name="navigation_unmute">Aktifkan petunjuk suara</string>
+    <string name="navigation_stop">Hentikan</string>
+    <string name="navigation_stop_title">Hentikan navigasi?</string>
+    <string name="navigation_stop_body">Lokasi langsung dan petunjuk suara akan dihentikan.</string>
+    <string name="navigation_continue">Lanjutkan navigasi</string>
+    <string name="navigation_mode_car">Mobil</string>
+    <string name="navigation_mode_motorcycle">Motor</string>
+    <string name="navigation_simulation_badge">SIMULASI</string>
+    <string name="navigation_simulation_pause">Jeda</string>
+    <string name="navigation_simulation_resume">Lanjutkan</string>
+    <string name="navigation_simulation_speed_short">%1$d×</string>
+    <string name="navigation_simulation_off_route">Simulasikan keluar rute</string>
+    <string name="navigation_tts_unavailable">Suara bahasa Indonesia tidak tersedia. Navigasi tetap berjalan tanpa suara.</string>
+    <string name="navigation_service_start_failed">Navigasi tidak dapat dimulai. Periksa izin lokasi lalu coba lagi.</string>
+    <string name="navigation_notification_channel">Navigasi aktif</string>
+    <string name="navigation_notification_channel_description">Petunjuk dan kemajuan selama navigasi GATHRA berlangsung.</string>
+    <string name="navigation_notification_title">Navigasi GATHRA</string>
+    <string name="navigation_notification_preparing">Menyiapkan navigasi…</string>
+    <string name="navigation_notification_remaining">%1$s tersisa · %2$s</string>
+    <string name="navigation_notification_stop">Hentikan</string>
+    <string name="navigation_depart">Mulai mengikuti rute</string>
+    <string name="navigation_continue_straight">Lanjutkan lurus</string>
+    <string name="navigation_turn_left">Belok kiri</string>
+    <string name="navigation_turn_right">Belok kanan</string>
+    <string name="navigation_slight_left">Ambil arah sedikit ke kiri</string>
+    <string name="navigation_slight_right">Ambil arah sedikit ke kanan</string>
+    <string name="navigation_sharp_left">Belok tajam ke kiri</string>
+    <string name="navigation_sharp_right">Belok tajam ke kanan</string>
+    <string name="navigation_u_turn">Putar balik</string>
+    <string name="navigation_roundabout">Masuk bundaran</string>
+    <string name="navigation_exit_roundabout">Keluar dari bundaran</string>
+    <string name="navigation_merge">Bergabung ke jalan utama</string>
+    <string name="navigation_fork_left">Ambil jalur kiri</string>
+    <string name="navigation_fork_right">Ambil jalur kanan</string>
+    <string name="navigation_arrive_instruction">Tujuan berada di depan</string>
+    <string name="navigation_instruction_with_road">%1$s ke %2$s</string>
+    <plurals name="navigation_voice_prepare">
+        <item quantity="other">Dalam sekitar %1$d meter, %2$s.</item>
+    </plurals>
+    <plurals name="navigation_voice_advance">
+        <item quantity="other">Dalam %1$d meter, %2$s.</item>
+    </plurals>
+    <string name="navigation_voice_immediate">%1$s sekarang.</string>
+    <string name="navigation_voice_arrival">Anda telah tiba di tujuan.</string>
 </resources>

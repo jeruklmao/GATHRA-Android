@@ -2,7 +2,10 @@ package opsi.sman35jkt.gathra.feature.map
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -254,6 +257,57 @@ class MapRouteViewModelTest {
 
         assertEquals(RouteContentState.READY, viewModel.uiState.value.routeContentState)
         assertEquals(2, viewModel.uiState.value.routes.size)
+    }
+
+    @Test
+    fun `tapping start with permission emits selected navigation route`() = runTest {
+        val viewModel = createViewModel()
+        selectPoint(
+            viewModel = viewModel,
+            mode = PointSelectionMode.DESTINATION,
+            point = JakartaDemoPoints.suggestedDestination,
+        )
+        advanceUntilIdle()
+        viewModel.onAction(
+            MapRouteAction.LocationPermissionResult(
+                preciseGranted = true,
+                approximateGranted = true,
+            ),
+        )
+        advanceUntilIdle()
+        val selectedRoute = requireNotNull(viewModel.uiState.value.selectedRoute)
+        val effect = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) {
+            viewModel.effects.first()
+        }
+
+        viewModel.onAction(MapRouteAction.PreviewClicked)
+        assertTrue(viewModel.uiState.value.isPermissionRationaleVisible)
+        viewModel.onAction(MapRouteAction.PermissionRationaleAccepted)
+
+        assertEquals(
+            MapRouteEffect.StartNavigation(
+                route = selectedRoute,
+                destination = JakartaDemoPoints.suggestedDestination,
+                travelMode = TravelMode.CAR,
+            ),
+            effect.await(),
+        )
+    }
+
+    @Test
+    fun `tapping start without permission shows navigation rationale`() = runTest {
+        val viewModel = createViewModel()
+        selectPoint(
+            viewModel = viewModel,
+            mode = PointSelectionMode.DESTINATION,
+            point = JakartaDemoPoints.suggestedDestination,
+        )
+        advanceUntilIdle()
+
+        viewModel.onAction(MapRouteAction.PreviewClicked)
+
+        assertTrue(viewModel.uiState.value.isPermissionRationaleVisible)
+        assertTrue(viewModel.uiState.value.isNavigationPermissionRequest)
     }
 
     @Test

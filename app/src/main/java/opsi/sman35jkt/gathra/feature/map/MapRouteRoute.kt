@@ -7,6 +7,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -39,6 +40,9 @@ import kotlinx.coroutines.launch
 import opsi.sman35jkt.gathra.R
 import opsi.sman35jkt.gathra.core.map.MapLibreRouteMap
 import opsi.sman35jkt.gathra.core.map.RouteMapColors
+import opsi.sman35jkt.gathra.core.model.GeoPoint
+import opsi.sman35jkt.gathra.core.model.RouteOption
+import opsi.sman35jkt.gathra.core.model.TravelMode
 import opsi.sman35jkt.gathra.ui.theme.GathraTheme
 
 private const val LOCATION_PERMISSION_PREFERENCES = "gathra_location_permission"
@@ -47,6 +51,7 @@ private const val LOCATION_PERMISSION_REQUESTED = "foreground_requested"
 @Composable
 fun MapRouteRoute(
     viewModel: MapRouteViewModel,
+    onStartNavigation: (RouteOption, GeoPoint, TravelMode) -> Boolean,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -59,12 +64,17 @@ fun MapRouteRoute(
         R.string.permission_approximate_notice,
     )
     val deniedPermissionNotice = stringResource(R.string.permission_denied_notice)
-    val previewLaterMessage = stringResource(R.string.preview_later_message)
+    val routeUnavailableMessage = stringResource(
+        R.string.navigation_route_unavailable,
+    )
     val locationDisabledMessage = stringResource(R.string.location_services_disabled)
     val locationUnavailableMessage = stringResource(
         R.string.current_location_unavailable,
     )
     val mapUnavailableMessage = stringResource(R.string.map_style_unavailable)
+    val navigationStartFailedMessage = stringResource(
+        R.string.navigation_service_start_failed,
+    )
     val permissionPreferences = remember(context) {
         context.getSharedPreferences(
             LOCATION_PERMISSION_PREFERENCES,
@@ -103,6 +113,12 @@ fun MapRouteRoute(
                 snackbarHostState.showSnackbar(deniedPermissionNotice)
             }
         }
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {
+        // A denied notification permission does not stop a foreground navigation
+        // session; Android still exposes the running service in system UI.
     }
 
     LaunchedEffect(viewModel, activity) {
@@ -224,11 +240,31 @@ fun MapRouteRoute(
                 }
                 is MapRouteEffect.ShowMessage -> snackbarHostState.showSnackbar(
                     when (effect.message) {
-                        MapRouteMessage.NAVIGATION_COMING_LATER -> previewLaterMessage
                         MapRouteMessage.LOCATION_DISABLED -> locationDisabledMessage
                         MapRouteMessage.LOCATION_UNAVAILABLE -> locationUnavailableMessage
+                        MapRouteMessage.NAVIGATION_ROUTE_UNAVAILABLE ->
+                            routeUnavailableMessage
                     },
                 )
+                is MapRouteEffect.StartNavigation -> {
+                    val started = onStartNavigation(
+                        effect.route,
+                        effect.destination,
+                        effect.travelMode,
+                    )
+                    if (!started) {
+                        snackbarHostState.showSnackbar(
+                            navigationStartFailedMessage,
+                        )
+                    } else if (
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        !context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+                    ) {
+                        notificationPermissionLauncher.launch(
+                            Manifest.permission.POST_NOTIFICATIONS,
+                        )
+                    }
+                }
             }
         }
     }
@@ -286,7 +322,17 @@ fun MapRouteRoute(
                 viewModel.onAction(MapRouteAction.PermissionRationaleDismissed)
             },
             title = { Text(stringResource(R.string.permission_rationale_title)) },
-            text = { Text(stringResource(R.string.permission_rationale_body)) },
+            text = {
+                Text(
+                    stringResource(
+                        if (state.isNavigationPermissionRequest) {
+                            R.string.navigation_permission_rationale_body
+                        } else {
+                            R.string.permission_rationale_body
+                        },
+                    ),
+                )
+            },
             confirmButton = {
                 Button(
                     onClick = {

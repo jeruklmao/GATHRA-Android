@@ -2,9 +2,13 @@ package opsi.sman35jkt.gathra.data.route.remote
 
 import kotlin.math.ceil
 import opsi.sman35jkt.gathra.core.model.GeoPoint
+import opsi.sman35jkt.gathra.core.model.ManeuverModifier
+import opsi.sman35jkt.gathra.core.model.ManeuverType
 import opsi.sman35jkt.gathra.core.model.RouteGeometry
+import opsi.sman35jkt.gathra.core.model.RouteManeuver
 import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.RouteRequest
+import opsi.sman35jkt.gathra.core.model.RouteStep
 import opsi.sman35jkt.gathra.core.model.RouteSummary
 
 internal object RouteDtoMapper {
@@ -56,6 +60,8 @@ internal object RouteDtoMapper {
             )
             requireValid(route.summary.distanceMeters > 0)
             requireValid(route.summary.durationSeconds > 0)
+            requireValid(route.steps.isNotEmpty())
+            requireValid(route.steps.size <= MAX_ROUTE_STEPS)
 
             val points = route.geometry.coordinates.map { coordinate ->
                 requireValid(coordinate.size == 2)
@@ -66,6 +72,58 @@ internal object RouteDtoMapper {
                 requireValid(latitude in -90.0..90.0)
                 GeoPoint(latitude = latitude, longitude = longitude)
             }
+            val steps = route.steps.mapIndexed { expectedIndex, step ->
+                requireValid(step.index == expectedIndex)
+                requireValid(step.instruction.isNotBlank())
+                requireValid(step.instruction.length <= MAX_INSTRUCTION_LENGTH)
+                requireValid(step.streetName.length <= MAX_STREET_NAME_LENGTH)
+                requireValid(step.distanceMeters >= 0)
+                requireValid(step.durationSeconds >= 0)
+                requireValid(step.geometryStartIndex in points.indices)
+                requireValid(step.geometryEndIndex in points.indices)
+                requireValid(step.geometryStartIndex <= step.geometryEndIndex)
+                if (expectedIndex == 0) {
+                    requireValid(step.geometryStartIndex == 0)
+                } else {
+                    val previous = route.steps[expectedIndex - 1]
+                    requireValid(
+                        step.geometryStartIndex == previous.geometryEndIndex,
+                    )
+                    requireValid(step.geometryEndIndex >= previous.geometryEndIndex)
+                }
+
+                val maneuverType = enumValueOrInvalid<ManeuverType>(
+                    step.manoeuvre.type,
+                )
+                val maneuverModifier = enumValueOrInvalid<ManeuverModifier>(
+                    step.manoeuvre.modifier,
+                )
+                requireValid(
+                    step.manoeuvre.bearingBefore == null ||
+                        step.manoeuvre.bearingBefore in 0..359,
+                )
+                requireValid(
+                    step.manoeuvre.bearingAfter == null ||
+                        step.manoeuvre.bearingAfter in 0..359,
+                )
+                RouteStep(
+                    index = step.index,
+                    instruction = step.instruction,
+                    streetName = step.streetName,
+                    distanceMeters = step.distanceMeters,
+                    durationSeconds = step.durationSeconds,
+                    maneuver = RouteManeuver(
+                        type = maneuverType,
+                        modifier = maneuverModifier,
+                        bearingBefore = step.manoeuvre.bearingBefore,
+                        bearingAfter = step.manoeuvre.bearingAfter,
+                    ),
+                    geometryStartIndex = step.geometryStartIndex,
+                    geometryEndIndex = step.geometryEndIndex,
+                )
+            }
+            requireValid(steps.last().maneuver.type == ManeuverType.ARRIVE)
+            requireValid(steps.last().geometryEndIndex == points.lastIndex)
 
             RouteOption(
                 id = route.id,
@@ -75,11 +133,17 @@ internal object RouteDtoMapper {
                     etaMinutes = ceil(route.summary.durationSeconds / 60.0)
                         .toInt()
                         .coerceAtLeast(1),
+                    durationSeconds = route.summary.durationSeconds,
                 ),
                 isRecommended = route.isRecommended,
+                steps = steps,
             )
         }
     }
+
+    private inline fun <reified T : Enum<T>> enumValueOrInvalid(value: String): T =
+        enumValues<T>().firstOrNull { it.name == value }
+            ?: throw InvalidRouteResponseException()
 
     private fun requireValid(condition: Boolean) {
         if (!condition) {
@@ -88,6 +152,9 @@ internal object RouteDtoMapper {
     }
 
     private const val GEOJSON_LINE_STRING = "LineString"
+    private const val MAX_ROUTE_STEPS = 10_000
+    private const val MAX_INSTRUCTION_LENGTH = 500
+    private const val MAX_STREET_NAME_LENGTH = 200
 }
 
 internal class InvalidRouteResponseException :

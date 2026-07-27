@@ -10,7 +10,9 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 object RouteNetworkFactory {
     private val json = Json {
-        ignoreUnknownKeys = false
+        // The v1 route contract is additive. Known navigation fields remain strictly
+        // validated by RouteDtoMapper while future server metadata is ignored.
+        ignoreUnknownKeys = true
         isLenient = false
         explicitNulls = false
     }

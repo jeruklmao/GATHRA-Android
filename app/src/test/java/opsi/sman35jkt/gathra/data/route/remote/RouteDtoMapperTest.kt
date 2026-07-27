@@ -1,6 +1,7 @@
 package opsi.sman35jkt.gathra.data.route.remote
 
 import opsi.sman35jkt.gathra.core.model.GeoPoint
+import opsi.sman35jkt.gathra.core.model.ManeuverType
 import opsi.sman35jkt.gathra.core.model.RouteRequest
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import org.junit.Assert.assertEquals
@@ -33,7 +34,12 @@ class RouteDtoMapperTest {
             routes.first().geometry.points.last(),
         )
         assertEquals(12, routes.first().summary.etaMinutes)
+        assertEquals(676, routes.first().summary.durationSeconds)
         assertEquals(13, routes.last().summary.etaMinutes)
+        assertEquals(2, routes.first().steps.size)
+        assertEquals(ManeuverType.DEPART, routes.first().steps.first().maneuver.type)
+        assertEquals(90, routes.first().steps.first().maneuver.bearingAfter)
+        assertEquals(ManeuverType.ARRIVE, routes.first().steps.last().maneuver.type)
     }
 
     @Test
@@ -94,6 +100,96 @@ class RouteDtoMapperTest {
         }
     }
 
+    @Test
+    fun `response rejects an unknown manoeuvre enum`() {
+        val response = validResponse().let { value ->
+            value.copy(
+                routes = value.routes.mapIndexed { index, route ->
+                    if (index == 0) {
+                        route.copy(
+                            steps = route.steps.mapIndexed { stepIndex, step ->
+                                if (stepIndex == 0) {
+                                    step.copy(
+                                        manoeuvre = step.manoeuvre.copy(
+                                            type = "GRAPH_HOPPER_PRIVATE_SIGN",
+                                        ),
+                                    )
+                                } else {
+                                    step
+                                }
+                            },
+                        )
+                    } else {
+                        route
+                    }
+                },
+            )
+        }
+
+        assertThrows(InvalidRouteResponseException::class.java) {
+            RouteDtoMapper.toDomain(response, request)
+        }
+    }
+
+    @Test
+    fun `response rejects a step interval outside the geometry`() {
+        val response = validResponse().let { value ->
+            value.copy(
+                routes = value.routes.mapIndexed { index, route ->
+                    if (index == 0) {
+                        route.copy(
+                            steps = route.steps.mapIndexed { stepIndex, step ->
+                                if (stepIndex == 0) {
+                                    step.copy(geometryEndIndex = 99)
+                                } else {
+                                    step
+                                }
+                            },
+                        )
+                    } else {
+                        route
+                    }
+                },
+            )
+        }
+
+        assertThrows(InvalidRouteResponseException::class.java) {
+            RouteDtoMapper.toDomain(response, request)
+        }
+    }
+
+    @Test
+    fun `response requires the final navigation step to arrive`() {
+        val response = validResponse().let { value ->
+            value.copy(
+                routes = value.routes.mapIndexed { index, route ->
+                    if (index == 0) {
+                        route.copy(
+                            steps = route.steps.mapIndexed { stepIndex, step ->
+                                if (stepIndex == route.steps.lastIndex) {
+                                    step.copy(
+                                        manoeuvre = step.manoeuvre.copy(
+                                            type = "CONTINUE",
+                                            modifier = "STRAIGHT",
+                                        ),
+                                    )
+                                } else {
+                                    step
+                                }
+                            },
+                        )
+                    } else {
+                        route
+                    }
+                },
+            )
+        }
+
+        assertThrows(InvalidRouteResponseException::class.java) {
+            RouteDtoMapper.toDomain(response, request)
+        }
+    }
+
     private fun validResponse() = RoutePreviewResponseDto(
         requestId = "request-1",
         routes = listOf(
@@ -112,6 +208,7 @@ class RouteDtoMapperTest {
                     distanceMeters = 4_128,
                     durationSeconds = 676,
                 ),
+                steps = validSteps(lastGeometryIndex = 2),
             ),
             RouteResponseDto(
                 id = "route-alternative",
@@ -128,12 +225,46 @@ class RouteDtoMapperTest {
                     distanceMeters = 4_583,
                     durationSeconds = 731,
                 ),
+                steps = validSteps(lastGeometryIndex = 2),
             ),
         ),
         metadata = RouteMetadataDto(
             travelMode = "CAR",
             requestedAlternatives = 1,
             returnedAlternatives = 1,
+        ),
+    )
+
+    private fun validSteps(lastGeometryIndex: Int) = listOf(
+        RouteStepResponseDto(
+            index = 0,
+            instruction = "Mulai mengikuti rute",
+            streetName = "Jalan Demo",
+            distanceMeters = 4_128,
+            durationSeconds = 676,
+            manoeuvre = RouteManeuverResponseDto(
+                type = "DEPART",
+                modifier = "STRAIGHT",
+                bearingBefore = null,
+                bearingAfter = 90,
+            ),
+            geometryStartIndex = 0,
+            geometryEndIndex = lastGeometryIndex,
+        ),
+        RouteStepResponseDto(
+            index = 1,
+            instruction = "Anda telah tiba",
+            streetName = "",
+            distanceMeters = 0,
+            durationSeconds = 0,
+            manoeuvre = RouteManeuverResponseDto(
+                type = "ARRIVE",
+                modifier = "NONE",
+                bearingBefore = 90,
+                bearingAfter = null,
+            ),
+            geometryStartIndex = lastGeometryIndex,
+            geometryEndIndex = lastGeometryIndex,
         ),
     )
 
