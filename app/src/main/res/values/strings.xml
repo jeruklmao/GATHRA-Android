@@ -176,4 +176,16 @@
     </plurals>
     <string name="navigation_voice_immediate">%1$s sekarang.</string>
     <string name="navigation_voice_arrival">Anda telah tiba di tujuan.</string>
+
+    <string name="flood_risk_low">Risiko banjir rendah</string>
+    <string name="flood_risk_medium">Risiko banjir sedang</string>
+    <string name="flood_risk_high">Risiko banjir tinggi</string>
+    <string name="flood_risk_blocked">Area diblokir akibat banjir</string>
+    <string name="flood_risk_unknown">Risiko belum dievaluasi</string>
+    <string name="flood_risk_not_evaluated">Data simulasi</string>
+    <string name="flood_risk_explanation_low">Rute dengan risiko banjir lebih rendah berdasarkan data yang tersedia.</string>
+    <string name="flood_risk_explanation_medium">Melewati area yang terindikasi banjir sedang.</string>
+    <string name="flood_risk_explanation_high">Melewati area dengan risiko banjir tinggi.</string>
+    <string name="flood_risk_explanation_blocked">Melewati lokasi banjir yang ditutup.</string>
+    <string name="flood_disclaimer">Data banjir simulasi · Cakupan data mungkin tidak lengkap</string>
 </resources>

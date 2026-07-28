@@ -41,6 +41,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import opsi.sman35jkt.gathra.R
+import opsi.sman35jkt.gathra.core.model.FloodRiskLevel
+import opsi.sman35jkt.gathra.core.model.RouteFloodRisk
 import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import opsi.sman35jkt.gathra.feature.map.MapRouteError
@@ -84,7 +86,7 @@ fun RouteBottomSheetContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                        text = stringResource(R.string.route_sheet_title),
+                    text = stringResource(R.string.route_sheet_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f),
@@ -149,22 +151,21 @@ private fun EmptyRouteContent(destinationSelected: Boolean) {
         Icon(
             imageVector = Icons.Rounded.Route,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.secondary,
-            modifier = Modifier.size(28.dp),
+            tint = MaterialTheme.colorScheme.primary,
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = stringResource(
-                    if (destinationSelected) {
-                        R.string.route_loading
-                    } else {
-                        R.string.route_empty_title
-                    },
-                ),
+                text = stringResource(R.string.route_empty_title),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
             )
-            if (!destinationSelected) {
+            if (destinationSelected) {
+                Text(
+                    text = stringResource(R.string.route_loading),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
                 Text(
                     text = stringResource(R.string.route_empty_body),
                     style = MaterialTheme.typography.bodySmall,
@@ -185,13 +186,21 @@ private fun LoadingRouteContent() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CircularProgressIndicator(
-            modifier = Modifier.size(28.dp),
-            strokeWidth = 3.dp,
+            modifier = Modifier.size(24.dp),
+            strokeWidth = 2.5.dp,
         )
-        Text(
-            text = stringResource(R.string.route_loading),
-            style = MaterialTheme.typography.bodyLarge,
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.route_loading),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stringResource(R.string.route_empty_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -262,7 +271,7 @@ private fun ReadyRouteContent(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Bottom,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = stringResource(
@@ -281,17 +290,23 @@ private fun ReadyRouteContent(
                 ),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 3.dp),
             )
+            Spacer(modifier = Modifier.weight(1f))
+            FloodRiskBadge(risk = selectedRoute.risk)
+        }
+        val floodExplanationRes = when (selectedRoute.risk?.level) {
+            FloodRiskLevel.LOW -> R.string.flood_risk_explanation_low
+            FloodRiskLevel.MEDIUM -> R.string.flood_risk_explanation_medium
+            FloodRiskLevel.HIGH -> R.string.flood_risk_explanation_high
+            FloodRiskLevel.BLOCKED -> R.string.flood_risk_explanation_blocked
+            else -> if (selectedRoute.isRecommended) {
+                R.string.fastest_route_explanation
+            } else {
+                R.string.selected_route_explanation
+            }
         }
         Text(
-            text = stringResource(
-                if (selectedRoute.isRecommended) {
-                    R.string.fastest_route_explanation
-                } else {
-                    R.string.selected_route_explanation
-                },
-            ),
+            text = stringResource(floodExplanationRes),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -320,6 +335,12 @@ private fun ReadyRouteContent(
                     )
                 }
             }
+            Text(
+                text = stringResource(R.string.flood_disclaimer),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
     }
 }
@@ -368,11 +389,15 @@ private fun RouteChoiceRow(
         )
         Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                FloodRiskBadge(risk = route.risk)
+            }
             Text(
                 text = stringResource(
                     R.string.distance_kilometers,
@@ -391,5 +416,58 @@ private fun RouteChoiceRow(
             fontWeight = FontWeight.Bold,
         )
         RadioButton(selected = selected, onClick = null)
+    }
+}
+
+@Composable
+private fun FloodRiskBadge(
+    risk: RouteFloodRisk?,
+    modifier: Modifier = Modifier,
+) {
+    val (labelRes, containerColor, contentColor) = when (risk?.level) {
+        FloodRiskLevel.LOW -> Triple(
+            R.string.flood_risk_low,
+            MaterialTheme.colorScheme.primaryContainer,
+            MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+        FloodRiskLevel.MEDIUM -> Triple(
+            R.string.flood_risk_medium,
+            MaterialTheme.colorScheme.secondaryContainer,
+            MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+        FloodRiskLevel.HIGH -> Triple(
+            R.string.flood_risk_high,
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer,
+        )
+        FloodRiskLevel.BLOCKED -> Triple(
+            R.string.flood_risk_blocked,
+            MaterialTheme.colorScheme.error,
+            MaterialTheme.colorScheme.onError,
+        )
+        FloodRiskLevel.UNKNOWN -> Triple(
+            R.string.flood_risk_unknown,
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FloodRiskLevel.NOT_EVALUATED, null -> Triple(
+            R.string.flood_risk_not_evaluated,
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = containerColor,
+        contentColor = contentColor,
+    ) {
+        Text(
+            text = stringResource(labelRes),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }

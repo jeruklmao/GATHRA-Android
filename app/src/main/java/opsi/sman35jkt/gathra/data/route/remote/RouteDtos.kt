@@ -24,9 +24,23 @@ internal data class RoutePreviewResponseDto(
 )
 
 @Serializable
+internal data class RouteRiskResponseDto(
+    val level: String,
+    val score: Double,
+    val intersectsBlockedArea: Boolean,
+    val affectedDistanceMeters: Int,
+    val confidence: Double? = null,
+    val reasonCodes: List<String> = emptyList(),
+    val evaluatedAt: String? = null,
+    val validUntil: String? = null,
+    val hazardSnapshotId: String? = null,
+)
+
+@Serializable
 internal data class RouteResponseDto(
     val id: String,
     val isRecommended: Boolean,
+    val risk: RouteRiskResponseDto? = null,
     val geometry: GeoJsonLineStringDto,
     val summary: RouteSummaryResponseDto,
     val steps: List<RouteStepResponseDto>,
@@ -65,10 +79,20 @@ internal data class RouteManeuverResponseDto(
 )
 
 @Serializable
+internal data class FloodMetadataResponseDto(
+    val source: String,
+    val snapshotId: String,
+    val evaluatedAt: String? = null,
+    val validUntil: String? = null,
+    val activeHazardCount: Int = 0,
+)
+
+@Serializable
 internal data class RouteMetadataDto(
     val travelMode: String,
     val requestedAlternatives: Int,
     val returnedAlternatives: Int,
+    val flood: FloodMetadataResponseDto? = null,
 )
 
 @Serializable
