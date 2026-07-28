@@ -40,6 +40,7 @@ fun GathraApp(
             routeRepository = appContainer.routeRepository,
             locationRepository = appContainer.locationRepository,
             geocodingRepository = appContainer.geocodingRepository,
+            floodHazardRepository = appContainer.floodHazardRepository,
         )
     }
     val searchFactory = remember(appContainer) {
@@ -69,7 +70,10 @@ fun GathraApp(
 
     GATHRATheme {
         if (navigationIsVisible) {
-            NavigationRoute(viewModel = navigationViewModel)
+            NavigationRoute(
+                viewModel = navigationViewModel,
+                floodHazardSnapshot = mapViewModel.uiState.collectAsStateWithLifecycle().value.floodHazardSnapshot,
+            )
         } else {
             Box(modifier = Modifier.fillMaxSize()) {
                 MapRouteRoute(

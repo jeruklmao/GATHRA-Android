@@ -188,4 +188,17 @@
     <string name="flood_risk_explanation_high">Melewati area dengan risiko banjir tinggi.</string>
     <string name="flood_risk_explanation_blocked">Melewati lokasi banjir yang ditutup.</string>
     <string name="flood_disclaimer">Data banjir simulasi · Cakupan data mungkin tidak lengkap</string>
+    <string name="flood_hazard_title">Area terindikasi banjir</string>
+    <string name="flood_risk_low_desc">Risiko banjir rendah pada area ini berdasarkan data simulasi.</string>
+    <string name="flood_risk_medium_desc">Terindikasi genangan air sedang. Harap berhati-hati.</string>
+    <string name="flood_risk_high_desc">Terindikasi banjir tinggi. Hindari melintasi jika memungkinkan.</string>
+    <string name="flood_risk_blocked_desc">Tidak dapat dilalui berdasarkan data banjir.</string>
+    <string name="flood_risk_unknown_desc">Tingkat risiko tidak diketahui.</string>
+    <string name="flood_hazard_confidence_format">Tingkat keyakinan: %1$d%%</string>
+    <string name="flood_source_simulated">Sumber data: Data banjir simulasi</string>
+    <string name="flood_source_sensor">Sumber data: Sensor</string>
+    <string name="flood_source_unknown">Sumber data: Tidak diketahui</string>
+    <string name="flood_disclaimer_coverage_incomplete">Cakupan data mungkin tidak lengkap</string>
+    <string name="flood_snapshot_updated">Data banjir telah diperbarui.</string>
+    <string name="action_dismiss">Tutup</string>
 </resources>

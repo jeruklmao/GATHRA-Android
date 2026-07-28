@@ -1,5 +1,6 @@
 package opsi.sman35jkt.gathra.feature.map
 
+import opsi.sman35jkt.gathra.core.model.GeoBounds
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.SelectedPlace
 import opsi.sman35jkt.gathra.core.model.TravelMode
@@ -54,4 +55,14 @@ sealed interface MapRouteAction {
     data object ErrorDismissed : MapRouteAction
 
     data object PreviewClicked : MapRouteAction
+
+    data object RefreshFloodHazards : MapRouteAction
+
+    data object ToggleFloodLayer : MapRouteAction
+
+    data class FloodHazardSelected(val hazardId: String) : MapRouteAction
+
+    data object DismissFloodHazardDetails : MapRouteAction
+
+    data class MapViewportSettled(val bounds: GeoBounds) : MapRouteAction
 }

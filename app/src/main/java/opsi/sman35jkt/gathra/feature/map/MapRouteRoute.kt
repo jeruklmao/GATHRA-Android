@@ -76,6 +76,7 @@ fun MapRouteRoute(
     val navigationStartFailedMessage = stringResource(
         R.string.navigation_service_start_failed,
     )
+    val floodSnapshotUpdatedNotice = stringResource(R.string.flood_snapshot_updated)
     val permissionPreferences = remember(context) {
         context.getSharedPreferences(
             LOCATION_PERMISSION_PREFERENCES,
@@ -120,6 +121,12 @@ fun MapRouteRoute(
     ) {
         // A denied notification permission does not stop a foreground navigation
         // session; Android still exposes the running service in system UI.
+    }
+
+    LaunchedEffect(state.isFloodSnapshotOutOfSync) {
+        if (state.isFloodSnapshotOutOfSync) {
+            snackbarHostState.showSnackbar(floodSnapshotUpdatedNotice)
+        }
     }
 
     LaunchedEffect(viewModel, activity) {
@@ -307,8 +314,16 @@ fun MapRouteRoute(
                     pendingMarker = mapColors.pendingMarker,
                     markerStroke = MaterialTheme.colorScheme.surface,
                 ),
+                floodSnapshot = state.floodHazardSnapshot,
+                isFloodLayerVisible = state.isFloodLayerVisible,
                 onMapTap = {
                     viewModel.onAction(MapRouteAction.MapPointTapped(it))
+                },
+                onFloodHazardSelected = { id ->
+                    viewModel.onAction(MapRouteAction.FloodHazardSelected(id))
+                },
+                onViewportSettled = { bounds ->
+                    viewModel.onAction(MapRouteAction.MapViewportSettled(bounds))
                 },
                 onMapError = {
                     scope.launch {

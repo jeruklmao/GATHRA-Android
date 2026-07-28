@@ -43,6 +43,7 @@ import opsi.sman35jkt.gathra.R
 import opsi.sman35jkt.gathra.core.model.RouteSelectionPoint
 import opsi.sman35jkt.gathra.core.model.SelectionPointSource
 import opsi.sman35jkt.gathra.feature.map.components.CurrentLocationButton
+import opsi.sman35jkt.gathra.feature.map.components.FloodHazardDetailSheet
 import opsi.sman35jkt.gathra.feature.map.components.PointSelectionControls
 import opsi.sman35jkt.gathra.feature.map.components.RouteBottomSheetContent
 import opsi.sman35jkt.gathra.feature.map.components.RouteInputCard
@@ -251,6 +252,18 @@ fun MapRouteScreen(
                             },
                         )
                     }
+                }
+
+                state.selectedFloodHazard?.let { hazard ->
+                    FloodHazardDetailSheet(
+                        hazard = hazard,
+                        onDismiss = {
+                            onAction(MapRouteAction.DismissFloodHazardDetails)
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = sheetClearance + 12.dp),
+                    )
                 }
 
                 CurrentLocationButton(

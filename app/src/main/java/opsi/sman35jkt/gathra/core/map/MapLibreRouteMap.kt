@@ -7,8 +7,8 @@ import android.view.Gravity
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -31,7 +31,12 @@ import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression.color
+import org.maplibre.android.style.expressions.Expression.get
+import org.maplibre.android.style.expressions.Expression.literal
+import org.maplibre.android.style.expressions.Expression.match
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory.circleColor
@@ -39,6 +44,7 @@ import org.maplibre.android.style.layers.PropertyFactory.circleOpacity
 import org.maplibre.android.style.layers.PropertyFactory.circleRadius
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
+import org.maplibre.android.style.layers.PropertyFactory.fillColor
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
@@ -50,17 +56,14 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import org.maplibre.geojson.Polygon
+import opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot
+import opsi.sman35jkt.gathra.core.model.GeoBounds
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.RouteOption
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/**
- * Theme-owned colors used by [MapLibreRouteMap].
- *
- * Keeping these values at the Compose boundary prevents the native map adapter from reaching into
- * a concrete application theme and makes light/dark changes regular state updates.
- */
 @Immutable
 data class RouteMapColors(
     val selectedRoute: Color,
@@ -72,12 +75,6 @@ data class RouteMapColors(
     val markerStroke: Color,
 )
 
-/**
- * A lifecycle-aware Compose boundary around MapLibre Native.
- *
- * Domain models are converted to GeoJSON only inside this adapter. The native [MapView] is
- * remembered for the lifetime of this composition and is never exposed to callers.
- */
 @Composable
 fun MapLibreRouteMap(
     origin: GeoPoint?,
@@ -88,7 +85,11 @@ fun MapLibreRouteMap(
     selectionEnabled: Boolean,
     bottomOverlayClearance: Dp,
     colors: RouteMapColors,
+    floodSnapshot: FloodHazardSnapshot? = null,
+    isFloodLayerVisible: Boolean = true,
     onMapTap: (GeoPoint) -> Unit,
+    onFloodHazardSelected: (String) -> Unit = {},
+    onViewportSettled: (GeoBounds) -> Unit = {},
     onMapError: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -96,6 +97,8 @@ fun MapLibreRouteMap(
     val density = LocalDensity.current.density
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestOnMapTap by rememberUpdatedState(onMapTap)
+    val latestOnFloodHazardSelected by rememberUpdatedState(onFloodHazardSelected)
+    val latestOnViewportSettled by rememberUpdatedState(onViewportSettled)
     val latestOnMapError by rememberUpdatedState(onMapError)
     val latestSelectionEnabled by rememberUpdatedState(selectionEnabled)
 
@@ -138,6 +141,8 @@ fun MapLibreRouteMap(
         renderer.attach(
             isSelectionEnabled = { latestSelectionEnabled },
             onMapTap = { latestOnMapTap },
+            onFloodHazardSelected = { latestOnFloodHazardSelected },
+            onViewportSettled = { latestOnViewportSettled },
             onMapError = { latestOnMapError },
         )
         lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
@@ -171,6 +176,8 @@ fun MapLibreRouteMap(
                     selectedRouteId = selectedRouteId,
                     bottomOverlayClearanceDp = bottomOverlayClearance.value.roundToInt(),
                     colors = colors,
+                    floodSnapshot = floodSnapshot,
+                    isFloodLayerVisible = isFloodLayerVisible,
                 ),
             )
         },
@@ -193,6 +200,8 @@ private data class MapRenderModel(
     val selectedRouteId: String?,
     val bottomOverlayClearanceDp: Int,
     val colors: RouteMapColors,
+    val floodSnapshot: FloodHazardSnapshot?,
+    val isFloodLayerVisible: Boolean,
 )
 
 private class MapRouteRenderer(
@@ -203,6 +212,7 @@ private class MapRouteRenderer(
     private var style: Style? = null
     private var latestModel: MapRenderModel? = null
     private var mapClickListener: MapLibreMap.OnMapClickListener? = null
+    private var cameraIdleListener: MapLibreMap.OnCameraIdleListener? = null
     private var mapFailureListener: MapView.OnDidFailLoadingMapListener? = null
     private var lastCameraGeometryKey: String? = null
     private var pendingCameraGeometryKey: String? = null
@@ -213,6 +223,8 @@ private class MapRouteRenderer(
     fun attach(
         isSelectionEnabled: () -> Boolean,
         onMapTap: () -> (GeoPoint) -> Unit,
+        onFloodHazardSelected: () -> (String) -> Unit,
+        onViewportSettled: () -> (GeoBounds) -> Unit,
         onMapError: () -> () -> Unit,
     ) {
         if (disposed || mapFailureListener != null) return
@@ -239,6 +251,17 @@ private class MapRouteRenderer(
                 .build()
 
             val clickListener = MapLibreMap.OnMapClickListener { coordinate ->
+                val pixel = readyMap.projection.toScreenLocation(coordinate)
+                val floodFeatures = readyMap.queryRenderedFeatures(pixel, FLOOD_FILL_LAYER_ID)
+
+                if (floodFeatures.isNotEmpty()) {
+                    val hazardId = floodFeatures.first().id()
+                    if (!hazardId.isNullOrEmpty()) {
+                        onFloodHazardSelected().invoke(hazardId)
+                        return@OnMapClickListener true
+                    }
+                }
+
                 if (isSelectionEnabled()) {
                     onMapTap().invoke(
                         GeoPoint(
@@ -253,6 +276,20 @@ private class MapRouteRenderer(
             }
             mapClickListener = clickListener
             readyMap.addOnMapClickListener(clickListener)
+
+            val idleListener = MapLibreMap.OnCameraIdleListener {
+                val bounds = readyMap.projection.visibleRegion.latLngBounds
+                onViewportSettled().invoke(
+                    GeoBounds(
+                        minLat = bounds.latitudeNorth.coerceAtMost(bounds.latitudeSouth),
+                        minLon = bounds.longitudeWest,
+                        maxLat = bounds.latitudeNorth.coerceAtGreater(bounds.latitudeSouth),
+                        maxLon = bounds.longitudeEast,
+                    ),
+                )
+            }
+            cameraIdleListener = idleListener
+            readyMap.addOnCameraIdleListener(idleListener)
 
             runCatching {
                 readyMap.setStyle(
@@ -298,6 +335,7 @@ private class MapRouteRenderer(
     private fun installSourcesAndLayers(style: Style) {
         val emptyFeatures = FeatureCollection.fromFeatures(emptyArray<Feature>())
 
+        style.addSource(GeoJsonSource(FLOOD_SOURCE_ID, emptyFeatures))
         style.addSource(GeoJsonSource(ALTERNATIVE_ROUTE_SOURCE_ID, emptyFeatures))
         style.addSource(GeoJsonSource(SELECTED_ROUTE_SOURCE_ID, emptyFeatures))
         style.addSource(GeoJsonSource(ORIGIN_SOURCE_ID, emptyFeatures))
@@ -305,6 +343,39 @@ private class MapRouteRenderer(
         style.addSource(GeoJsonSource(PENDING_SOURCE_ID, emptyFeatures))
 
         style.addLayer(
+            FillLayer(FLOOD_FILL_LAYER_ID, FLOOD_SOURCE_ID).withProperties(
+                fillColor(
+                    match(
+                        get("riskLevel"),
+                        literal("LOW"), color(0x332196F3.toInt()),
+                        literal("MEDIUM"), color(0x40FF9800.toInt()),
+                        literal("HIGH"), color(0x4DEF5350.toInt()),
+                        literal("BLOCKED"), color(0x59B71C1C.toInt()),
+                        color(0x339E9E9E.toInt()),
+                    ),
+                ),
+            ),
+        )
+        style.addLayerAbove(
+            LineLayer(FLOOD_OUTLINE_LAYER_ID, FLOOD_SOURCE_ID).withProperties(
+                lineCap(Property.LINE_CAP_ROUND),
+                lineJoin(Property.LINE_JOIN_ROUND),
+                lineWidth(2.5f),
+                lineColor(
+                    match(
+                        get("riskLevel"),
+                        literal("LOW"), color(0xFF2196F3.toInt()),
+                        literal("MEDIUM"), color(0xFFFF9800.toInt()),
+                        literal("HIGH"), color(0xFFEF5350.toInt()),
+                        literal("BLOCKED"), color(0xFFB71C1C.toInt()),
+                        color(0xFF9E9E9E.toInt()),
+                    ),
+                ),
+            ),
+            FLOOD_FILL_LAYER_ID,
+        )
+
+        style.addLayerAbove(
             LineLayer(ALTERNATIVE_ROUTE_LAYER_ID, ALTERNATIVE_ROUTE_SOURCE_ID).withProperties(
                 lineCap(Property.LINE_CAP_ROUND),
                 lineJoin(Property.LINE_JOIN_ROUND),
@@ -312,6 +383,7 @@ private class MapRouteRenderer(
                 lineOpacity(ALTERNATIVE_ROUTE_OPACITY),
                 lineDasharray(arrayOf(1.25f, 1.5f)),
             ),
+            FLOOD_OUTLINE_LAYER_ID,
         )
         style.addLayerAbove(
             LineLayer(SELECTED_ROUTE_OUTLINE_LAYER_ID, SELECTED_ROUTE_SOURCE_ID).withProperties(
@@ -359,6 +431,16 @@ private class MapRouteRenderer(
         val selectedRoute = model.routes.firstOrNull { it.id == model.selectedRouteId }
             ?: model.routes.firstOrNull()
         val alternativeRoutes = model.routes.filterNot { it.id == selectedRoute?.id }
+
+        if (model.isFloodLayerVisible && model.floodSnapshot != null) {
+            loadedStyle.geoJsonSource(FLOOD_SOURCE_ID).setGeoJson(
+                floodFeatureCollection(model.floodSnapshot),
+            )
+        } else {
+            loadedStyle.geoJsonSource(FLOOD_SOURCE_ID).setGeoJson(
+                FeatureCollection.fromFeatures(emptyArray<Feature>()),
+            )
+        }
 
         loadedStyle.geoJsonSource(ALTERNATIVE_ROUTE_SOURCE_ID).setGeoJson(
             routeFeatureCollection(alternativeRoutes),
@@ -565,8 +647,12 @@ private class MapRouteRenderer(
         mapClickListener?.let { listener ->
             map?.removeOnMapClickListener(listener)
         }
+        cameraIdleListener?.let { listener ->
+            map?.removeOnCameraIdleListener(listener)
+        }
         mapFailureListener?.let(mapView::removeOnDidFailLoadingMapListener)
         mapClickListener = null
+        cameraIdleListener = null
         mapFailureListener = null
         style = null
         map = null
@@ -646,6 +732,23 @@ private fun Style.geoJsonSource(id: String): GeoJsonSource =
         "Expected GeoJSON source $id to exist in the loaded map style."
     }
 
+private fun floodFeatureCollection(snapshot: FloodHazardSnapshot): FeatureCollection {
+    val features = snapshot.hazards.mapNotNull { hazard ->
+        val polygonPoints = hazard.rings.map { ring ->
+            ring.filter(GeoPoint::isRenderable).map(GeoPoint::toGeoJsonPoint)
+        }
+        if (polygonPoints.isEmpty() || polygonPoints.first().size < 3) {
+            null
+        } else {
+            val polygon = Polygon.fromLngLats(polygonPoints)
+            val feature = Feature.fromGeometry(polygon, null, hazard.id)
+            feature.addStringProperty("riskLevel", hazard.level.name)
+            feature
+        }
+    }
+    return FeatureCollection.fromFeatures(features.toTypedArray())
+}
+
 private fun routeFeatureCollection(routes: List<RouteOption>): FeatureCollection {
     val features = routes.mapNotNull { route ->
         val points = route.geometry.points
@@ -666,6 +769,9 @@ private fun pointFeatureCollection(point: GeoPoint?): FeatureCollection =
     } else {
         FeatureCollection.fromFeatures(emptyArray<Feature>())
     }
+
+private fun Double.coerceAtMost(maxVal: Double): Double = if (this > maxVal) maxVal else this
+private fun Double.coerceAtGreater(minVal: Double): Double = if (this < minVal) minVal else this
 
 private fun GeoPoint.toGeoJsonPoint(): Point = Point.fromLngLat(longitude, latitude)
 
@@ -692,6 +798,10 @@ private fun List<RouteOption>.cameraGeometryKey(): String? {
         }
     }
 }
+
+private const val FLOOD_SOURCE_ID = "gathra-flood-source"
+private const val FLOOD_FILL_LAYER_ID = "gathra-flood-fill"
+private const val FLOOD_OUTLINE_LAYER_ID = "gathra-flood-outline"
 
 private const val ALTERNATIVE_ROUTE_SOURCE_ID = "gathra-route-alternative-source"
 private const val SELECTED_ROUTE_SOURCE_ID = "gathra-route-selected-source"

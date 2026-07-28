@@ -1,5 +1,7 @@
 package opsi.sman35jkt.gathra.feature.map
 
+import opsi.sman35jkt.gathra.core.model.FloodHazardPolygon
+import opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.RouteSelectionPoint
@@ -29,6 +31,11 @@ data class MapRouteUiState(
     val currentLocationPoint: GeoPoint? = null,
     val bottomSheetState: RouteBottomSheetState = RouteBottomSheetState.COLLAPSED,
     val error: MapRouteError? = null,
+    val floodHazardSnapshot: FloodHazardSnapshot? = null,
+    val selectedFloodHazardId: String? = null,
+    val isFloodLayerVisible: Boolean = true,
+    val isLoadingFloodHazards: Boolean = false,
+    val isFloodSnapshotOutOfSync: Boolean = false,
 ) {
     val selectedRoute: RouteOption?
         get() = routes.firstOrNull { it.id == selectedRouteId }
@@ -41,6 +48,9 @@ data class MapRouteUiState(
 
     val canConfirmPointSelection: Boolean
         get() = pointSelectionMode != null && pendingPoint != null
+
+    val selectedFloodHazard: FloodHazardPolygon?
+        get() = floodHazardSnapshot?.hazards?.firstOrNull { it.id == selectedFloodHazardId }
 }
 
 enum class PointSelectionMode {
