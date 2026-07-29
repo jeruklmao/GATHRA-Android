@@ -77,6 +77,25 @@ class FakeFloodHazardRepository(
                     source = FloodHazardSource.SIMULATED,
                     sourceNodeIds = listOf("fake_node_02", "fake_node_03"),
                 ),
+                FloodHazardPolygon(
+                    id = "fake_hazard_user_custom_01",
+                    level = FloodHazardLevel.HIGH,
+                    rings = listOf(
+                        listOf(
+                            GeoPoint(latitude = -6.203061448721073, longitude = 106.81694487382944),
+                            GeoPoint(latitude = -6.203244130378491, longitude = 106.81489279253424),
+                            GeoPoint(latitude = -6.207232917350129, longitude = 106.81620979047918),
+                            GeoPoint(latitude = -6.206974105601998, longitude = 106.81841502206832),
+                            GeoPoint(latitude = -6.203061448721073, longitude = 106.81694487382944),
+                        ),
+                    ),
+                    confidence = 0.95,
+                    description = "Area terindikasi banjir simulasi kustom",
+                    observedAtEpochMillis = now,
+                    validUntilEpochMillis = validUntil,
+                    source = FloodHazardSource.SIMULATED,
+                    sourceNodeIds = listOf("fake_node_user_01"),
+                ),
             )
         }
     }
