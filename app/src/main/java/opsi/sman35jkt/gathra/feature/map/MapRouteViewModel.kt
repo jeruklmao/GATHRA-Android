@@ -7,6 +7,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -19,10 +20,12 @@ import kotlinx.coroutines.withContext
 import opsi.sman35jkt.gathra.core.location.LocationLookupResult
 import opsi.sman35jkt.gathra.core.location.LocationRepository
 import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
+import opsi.sman35jkt.gathra.core.model.GeoBounds
 import opsi.sman35jkt.gathra.core.model.RouteRequest
 import opsi.sman35jkt.gathra.core.model.RouteSelectionPoint
 import opsi.sman35jkt.gathra.core.model.SelectedPlace
 import opsi.sman35jkt.gathra.core.model.SelectionPointSource
+import opsi.sman35jkt.gathra.domain.flood.FloodHazardRepository
 import opsi.sman35jkt.gathra.domain.geocoding.GeocodingRepository
 import opsi.sman35jkt.gathra.domain.route.RouteFailureReason
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
@@ -32,6 +35,7 @@ class MapRouteViewModel(
     private val routeRepository: RouteRepository,
     private val locationRepository: LocationRepository,
     private val geocodingRepository: GeocodingRepository,
+    private val floodHazardRepository: FloodHazardRepository,
     private val workDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
@@ -50,9 +54,17 @@ class MapRouteViewModel(
 
     private var routeCalculationJob: Job? = null
     private var locationLookupJob: Job? = null
+    private var floodPollingJob: Job? = null
+    private var floodFetchJob: Job? = null
+    private var viewportDebounceJob: Job? = null
     private val reverseGeocodingJobs = mutableMapOf<PointSelectionMode, Job>()
     private val routeRequestGeneration = AtomicLong(0)
     private val locationRequestGeneration = AtomicLong(0)
+    private val floodRequestGeneration = AtomicLong(0)
+
+    init {
+        startFloodPolling()
+    }
 
     fun onAction(action: MapRouteAction) {
         when (action) {
@@ -89,6 +101,75 @@ class MapRouteViewModel(
             is MapRouteAction.LocationPermissionResult -> onLocationPermissionResult(action)
             MapRouteAction.ErrorDismissed -> dismissError()
             MapRouteAction.PreviewClicked -> requestNavigationStart()
+            MapRouteAction.RefreshFloodHazards -> fetchFloodHazards()
+            MapRouteAction.ToggleFloodLayer -> toggleFloodLayer()
+            is MapRouteAction.FloodHazardSelected -> selectFloodHazard(action.hazardId)
+            MapRouteAction.DismissFloodHazardDetails -> dismissFloodHazardDetails()
+            is MapRouteAction.MapViewportSettled -> onViewportSettled(action.bounds)
+        }
+    }
+
+    private fun startFloodPolling() {
+        floodPollingJob?.cancel()
+        floodPollingJob = viewModelScope.launch {
+            fetchFloodHazards()
+            while (true) {
+                delay(POLLING_INTERVAL_MS)
+                fetchFloodHazards()
+            }
+        }
+    }
+
+    fun fetchFloodHazards(bounds: GeoBounds? = null) {
+        floodFetchJob?.cancel()
+        val generation = floodRequestGeneration.incrementAndGet()
+        _uiState.update { it.copy(isLoadingFloodHazards = true) }
+
+        floodFetchJob = viewModelScope.launch {
+            try {
+                val snapshot = withContext(workDispatcher) {
+                    floodHazardRepository.getActiveHazards(bounds)
+                }
+                if (generation != floodRequestGeneration.get()) return@launch
+
+                val selectedRouteRiskSnapshotId = _uiState.value.selectedRoute?.risk?.hazardSnapshotId
+                val outOfSync = selectedRouteRiskSnapshotId != null &&
+                    selectedRouteRiskSnapshotId != snapshot.snapshotId
+
+                _uiState.update {
+                    it.copy(
+                        floodHazardSnapshot = snapshot,
+                        isLoadingFloodHazards = false,
+                        isFloodSnapshotOutOfSync = outOfSync,
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                if (generation != floodRequestGeneration.get()) return@launch
+                // Preserve previous snapshot on recoverable network failure
+                _uiState.update { it.copy(isLoadingFloodHazards = false) }
+            }
+        }
+    }
+
+    private fun toggleFloodLayer() {
+        _uiState.update { it.copy(isFloodLayerVisible = !it.isFloodLayerVisible) }
+    }
+
+    private fun selectFloodHazard(hazardId: String) {
+        _uiState.update { it.copy(selectedFloodHazardId = hazardId) }
+    }
+
+    private fun dismissFloodHazardDetails() {
+        _uiState.update { it.copy(selectedFloodHazardId = null) }
+    }
+
+    private fun onViewportSettled(bounds: GeoBounds) {
+        viewportDebounceJob?.cancel()
+        viewportDebounceJob = viewModelScope.launch {
+            delay(DEBOUNCE_VIEWPORT_MS)
+            fetchFloodHazards(bounds)
         }
     }
 
@@ -289,13 +370,23 @@ class MapRouteViewModel(
                 if (routes.isEmpty()) {
                     showRouteFailure(MapRouteError.ROUTE_NOT_FOUND)
                 } else {
+                    val currentMapSnapshotId = _uiState.value.floodHazardSnapshot?.snapshotId
+                    val routeRiskSnapshotId = selectedRoute?.risk?.hazardSnapshotId
+                    val outOfSync = currentMapSnapshotId != null &&
+                        routeRiskSnapshotId != null &&
+                        currentMapSnapshotId != routeRiskSnapshotId
+
                     _uiState.update {
                         it.copy(
                             routes = routes,
                             selectedRouteId = selectedRoute?.id,
                             routeContentState = RouteContentState.READY,
                             error = null,
+                            isFloodSnapshotOutOfSync = outOfSync,
                         )
+                    }
+                    if (outOfSync) {
+                        fetchFloodHazards()
                     }
                 }
             } catch (cancelled: CancellationException) {
@@ -628,8 +719,6 @@ class MapRouteViewModel(
                     state
                 } else {
                     val labelled = current.copy(
-                        // Deliberately ignore place.position. Reverse geocoding
-                        // is display metadata only.
                         displayName = place.name,
                         formattedAddress = place.formattedAddress,
                     )
@@ -669,8 +758,16 @@ class MapRouteViewModel(
     override fun onCleared() {
         routeCalculationJob?.cancel()
         locationLookupJob?.cancel()
+        floodPollingJob?.cancel()
+        floodFetchJob?.cancel()
+        viewportDebounceJob?.cancel()
         reverseGeocodingJobs.values.forEach(Job::cancel)
         super.onCleared()
+    }
+
+    companion object {
+        const val POLLING_INTERVAL_MS = 20_000L
+        const val DEBOUNCE_VIEWPORT_MS = 600L
     }
 }
 

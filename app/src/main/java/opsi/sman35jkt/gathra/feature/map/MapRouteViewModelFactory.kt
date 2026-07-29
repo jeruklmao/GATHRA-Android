@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import opsi.sman35jkt.gathra.core.location.LocationRepository
+import opsi.sman35jkt.gathra.domain.flood.FloodHazardRepository
 import opsi.sman35jkt.gathra.domain.geocoding.GeocodingRepository
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
 
@@ -12,6 +13,7 @@ class MapRouteViewModelFactory(
     private val routeRepository: RouteRepository,
     private val locationRepository: LocationRepository,
     private val geocodingRepository: GeocodingRepository,
+    private val floodHazardRepository: FloodHazardRepository,
     private val workDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModelProvider.Factory {
 
@@ -25,6 +27,7 @@ class MapRouteViewModelFactory(
             routeRepository = routeRepository,
             locationRepository = locationRepository,
             geocodingRepository = geocodingRepository,
+            floodHazardRepository = floodHazardRepository,
             workDispatcher = workDispatcher,
         ) as T
     }

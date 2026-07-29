@@ -18,8 +18,10 @@ import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.RouteRequest
 import opsi.sman35jkt.gathra.core.model.SelectionPointSource
 import opsi.sman35jkt.gathra.core.model.TravelMode
+import opsi.sman35jkt.gathra.data.flood.FakeFloodHazardRepository
 import opsi.sman35jkt.gathra.data.route.FakeRouteRepository
 import opsi.sman35jkt.gathra.data.geocoding.FakeGeocodingRepository
+import opsi.sman35jkt.gathra.domain.flood.FloodHazardRepository
 import opsi.sman35jkt.gathra.domain.geocoding.GeocodingRepository
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
 import opsi.sman35jkt.gathra.domain.route.RouteFailureReason
@@ -350,10 +352,12 @@ class MapRouteViewModelTest {
         geocodingRepository: GeocodingRepository = FakeGeocodingRepository(
                 loadingDelayMillis = 0,
             ),
+        floodHazardRepository: FloodHazardRepository = FakeFloodHazardRepository(),
     ): MapRouteViewModel = MapRouteViewModel(
         routeRepository = routeRepository,
         locationRepository = locationRepository,
         geocodingRepository = geocodingRepository,
+        floodHazardRepository = floodHazardRepository,
         workDispatcher = StandardTestDispatcher(),
     )
 

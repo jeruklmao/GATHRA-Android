@@ -32,6 +32,10 @@ import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression.color
+import org.maplibre.android.style.expressions.Expression.get
+import org.maplibre.android.style.expressions.Expression.literal
+import org.maplibre.android.style.expressions.Expression.match
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
@@ -55,8 +59,10 @@ import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 import org.maplibre.geojson.Polygon
+import opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.RouteOption
+import opsi.sman35jkt.gathra.data.navigation.GeoMath
 import kotlin.math.PI
 import kotlin.math.asin
 import kotlin.math.atan2
@@ -65,25 +71,12 @@ import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/**
- * Camera ownership requested by the navigation UI.
- *
- * [FOLLOW] keeps the matched user position below the centre of the unobscured map.
- * [FREE] leaves the camera entirely under gesture control.
- * [OVERVIEW] fits the untravelled part of the active route between the UI overlays.
- */
 enum class NavigationCameraMode {
     FOLLOW,
     FREE,
     OVERVIEW,
 }
 
-/**
- * Theme-owned colors for [MapLibreNavigationMap].
- *
- * Keeping all colors at the Compose boundary makes light/dark theme changes ordinary renderer
- * updates and keeps the native adapter independent from the application theme implementation.
- */
 @Immutable
 data class NavigationMapColors(
     val remainingRoute: Color,
@@ -98,13 +91,6 @@ data class NavigationMapColors(
     val destinationMarkerStroke: Color,
 )
 
-/**
- * Lifecycle-aware Compose adapter for the active-navigation map.
- *
- * All public location and route inputs are framework-independent. MapLibre and GeoJSON objects
- * remain private to this file, and this adapter only splits geometry for presentation; route
- * progress and map matching continue to belong to the navigation domain/data layer.
- */
 @Composable
 fun MapLibreNavigationMap(
     activeRoute: RouteOption,
@@ -118,6 +104,7 @@ fun MapLibreNavigationMap(
     topOverlayClearance: Dp,
     bottomOverlayClearance: Dp,
     colors: NavigationMapColors,
+    floodSnapshot: FloodHazardSnapshot? = null,
     onManualPan: () -> Unit,
     onMapError: () -> Unit,
     modifier: Modifier = Modifier,
@@ -214,6 +201,7 @@ fun MapLibreNavigationMap(
                     },
                     density = density.density,
                     colors = colors,
+                    floodSnapshot = floodSnapshot,
                 ),
             )
         },
@@ -241,6 +229,7 @@ private data class NavigationMapRenderModel(
     val bottomOverlayClearancePx: Int,
     val density: Float,
     val colors: NavigationMapColors,
+    val floodSnapshot: FloodHazardSnapshot?,
 )
 
 private class MapNavigationRenderer(
@@ -343,6 +332,7 @@ private class MapNavigationRenderer(
     private fun installSourcesAndLayers(style: Style) {
         val emptyFeatures = FeatureCollection.fromFeatures(emptyArray<Feature>())
 
+        style.addSource(GeoJsonSource(FLOOD_SOURCE_ID, emptyFeatures))
         style.addSource(GeoJsonSource(COMPLETED_ROUTE_SOURCE_ID, emptyFeatures))
         style.addSource(GeoJsonSource(REMAINING_ROUTE_SOURCE_ID, emptyFeatures))
         style.addSource(GeoJsonSource(ACCURACY_HALO_SOURCE_ID, emptyFeatures))
@@ -351,12 +341,46 @@ private class MapNavigationRenderer(
         style.addSource(GeoJsonSource(USER_HEADING_SOURCE_ID, emptyFeatures))
 
         style.addLayer(
+            FillLayer(FLOOD_FILL_LAYER_ID, FLOOD_SOURCE_ID).withProperties(
+                fillColor(
+                    match(
+                        get("riskLevel"),
+                        literal("LOW"), color(0x332196F3.toInt()),
+                        literal("MEDIUM"), color(0x40FF9800.toInt()),
+                        literal("HIGH"), color(0x4DEF5350.toInt()),
+                        literal("BLOCKED"), color(0x59B71C1C.toInt()),
+                        color(0x339E9E9E.toInt()),
+                    ),
+                ),
+            ),
+        )
+        style.addLayerAbove(
+            LineLayer(FLOOD_OUTLINE_LAYER_ID, FLOOD_SOURCE_ID).withProperties(
+                lineCap(Property.LINE_CAP_ROUND),
+                lineJoin(Property.LINE_JOIN_ROUND),
+                lineWidth(2.5f),
+                lineColor(
+                    match(
+                        get("riskLevel"),
+                        literal("LOW"), color(0xFF2196F3.toInt()),
+                        literal("MEDIUM"), color(0xFFFF9800.toInt()),
+                        literal("HIGH"), color(0xFFEF5350.toInt()),
+                        literal("BLOCKED"), color(0xFFB71C1C.toInt()),
+                        color(0xFF9E9E9E.toInt()),
+                    ),
+                ),
+            ),
+            FLOOD_FILL_LAYER_ID,
+        )
+
+        style.addLayerAbove(
             LineLayer(COMPLETED_ROUTE_LAYER_ID, COMPLETED_ROUTE_SOURCE_ID).withProperties(
                 lineCap(Property.LINE_CAP_ROUND),
                 lineJoin(Property.LINE_JOIN_ROUND),
                 lineWidth(COMPLETED_ROUTE_WIDTH),
                 lineOpacity(COMPLETED_ROUTE_OPACITY),
             ),
+            FLOOD_OUTLINE_LAYER_ID,
         )
         style.addLayerAbove(
             LineLayer(REMAINING_ROUTE_OUTLINE_LAYER_ID, REMAINING_ROUTE_SOURCE_ID).withProperties(
@@ -420,6 +444,16 @@ private class MapNavigationRenderer(
             )
         } else {
             null
+        }
+
+        if (model.floodSnapshot != null) {
+            loadedStyle.navigationGeoJsonSource(FLOOD_SOURCE_ID).setGeoJson(
+                floodFeatureCollection(model.floodSnapshot),
+            )
+        } else {
+            loadedStyle.navigationGeoJsonSource(FLOOD_SOURCE_ID).setGeoJson(
+                FeatureCollection.fromFeatures(emptyArray<Feature>()),
+            )
         }
 
         loadedStyle.navigationGeoJsonSource(COMPLETED_ROUTE_SOURCE_ID).setGeoJson(
@@ -681,199 +715,6 @@ private class MapNavigationRenderer(
     }
 }
 
-private data class DisplayRouteSplit(
-    val completed: List<GeoPoint>,
-    val remaining: List<GeoPoint>,
-)
-
-/**
- * Splits only the displayed polyline. Navigation progress itself is calculated elsewhere.
- *
- * Route summaries use provider distance while the visible line has a separately calculated
- * geodesic length, so the travelled fraction is applied to the visible length before splitting.
- */
-private fun splitRouteForDisplay(
-    route: RouteOption,
-    travelledDistanceMeters: Double,
-): DisplayRouteSplit {
-    val points = route.geometry.points.filter(GeoPoint::isRenderable)
-    if (points.size < MINIMUM_LINE_POINT_COUNT) {
-        return DisplayRouteSplit(emptyList(), emptyList())
-    }
-
-    val routeDistance = route.summary.distanceMeters.toDouble().coerceAtLeast(1.0)
-    val travelledFraction = (travelledDistanceMeters / routeDistance).coerceIn(0.0, 1.0)
-    if (travelledFraction <= 0.0) {
-        return DisplayRouteSplit(emptyList(), points)
-    }
-    if (travelledFraction >= 1.0) {
-        return DisplayRouteSplit(points, emptyList())
-    }
-
-    val segmentLengths = points.zipWithNext(GeoPoint::distanceTo)
-    val visibleLength = segmentLengths.sum()
-    if (visibleLength <= 0.0 || !visibleLength.isFinite()) {
-        return DisplayRouteSplit(emptyList(), points)
-    }
-    val splitDistance = visibleLength * travelledFraction
-    var accumulatedDistance = 0.0
-
-    segmentLengths.forEachIndexed { index, segmentLength ->
-        val segmentEnd = accumulatedDistance + segmentLength
-        if (splitDistance <= segmentEnd && segmentLength > 0.0) {
-            val fractionAlongSegment =
-                ((splitDistance - accumulatedDistance) / segmentLength).coerceIn(0.0, 1.0)
-            val splitPoint = interpolate(
-                start = points[index],
-                end = points[index + 1],
-                fraction = fractionAlongSegment,
-            )
-            val completedPrefix = points.take(index + 1)
-            val remainingSuffix = points.drop(index + 1)
-            return DisplayRouteSplit(
-                completed = if (completedPrefix.lastOrNull() == splitPoint) {
-                    completedPrefix
-                } else {
-                    completedPrefix + splitPoint
-                },
-                remaining = if (remainingSuffix.firstOrNull() == splitPoint) {
-                    remainingSuffix
-                } else {
-                    listOf(splitPoint) + remainingSuffix
-                },
-            )
-        }
-        accumulatedDistance = segmentEnd
-    }
-
-    return DisplayRouteSplit(points, emptyList())
-}
-
-private fun lineFeatureCollection(points: List<GeoPoint>): FeatureCollection {
-    val renderablePoints = points
-        .filter(GeoPoint::isRenderable)
-        .map(GeoPoint::toNavigationGeoJsonPoint)
-    return if (renderablePoints.size >= MINIMUM_LINE_POINT_COUNT) {
-        FeatureCollection.fromFeature(
-            Feature.fromGeometry(LineString.fromLngLats(renderablePoints)),
-        )
-    } else {
-        FeatureCollection.fromFeatures(emptyArray<Feature>())
-    }
-}
-
-private fun navigationPointFeatureCollection(point: GeoPoint?): FeatureCollection =
-    if (point?.isRenderable() == true) {
-        FeatureCollection.fromFeature(
-            Feature.fromGeometry(point.toNavigationGeoJsonPoint()),
-        )
-    } else {
-        FeatureCollection.fromFeatures(emptyArray<Feature>())
-    }
-
-private fun accuracyHaloFeatureCollection(
-    center: GeoPoint?,
-    accuracyMeters: Double?,
-): FeatureCollection {
-    val renderableCenter = center?.takeIf(GeoPoint::isRenderable)
-    val radiusMeters = accuracyMeters
-        ?.takeIf { it > 0.0 }
-        ?: return FeatureCollection.fromFeatures(emptyArray<Feature>())
-    renderableCenter ?: return FeatureCollection.fromFeatures(emptyArray<Feature>())
-
-    val ring = buildList {
-        for (index in 0..ACCURACY_HALO_SEGMENTS) {
-            val bearing = 360.0 * index / ACCURACY_HALO_SEGMENTS
-            add(
-                renderableCenter
-                    .pointAtDistanceAndBearing(radiusMeters, bearing)
-                    .toNavigationGeoJsonPoint(),
-            )
-        }
-    }
-    return FeatureCollection.fromFeature(
-        Feature.fromGeometry(Polygon.fromLngLats(listOf(ring))),
-    )
-}
-
-private fun interpolate(
-    start: GeoPoint,
-    end: GeoPoint,
-    fraction: Double,
-): GeoPoint = GeoPoint(
-    latitude = start.latitude + (end.latitude - start.latitude) * fraction,
-    longitude = start.longitude + (end.longitude - start.longitude) * fraction,
-)
-
-private fun GeoPoint.distanceTo(other: GeoPoint): Double {
-    val startLatitude = latitude.toRadians()
-    val endLatitude = other.latitude.toRadians()
-    val latitudeDelta = (other.latitude - latitude).toRadians()
-    val longitudeDelta = (other.longitude - longitude).toRadians()
-    val haversine =
-        sin(latitudeDelta / 2.0) * sin(latitudeDelta / 2.0) +
-            cos(startLatitude) * cos(endLatitude) *
-            sin(longitudeDelta / 2.0) * sin(longitudeDelta / 2.0)
-    val clampedHaversine = haversine.coerceIn(0.0, 1.0)
-    return EARTH_RADIUS_METERS * 2.0 *
-        atan2(sqrt(clampedHaversine), sqrt(1.0 - clampedHaversine))
-}
-
-private fun GeoPoint.pointAtDistanceAndBearing(
-    distanceMeters: Double,
-    bearingDegrees: Double,
-): GeoPoint {
-    val angularDistance = distanceMeters / EARTH_RADIUS_METERS
-    val bearing = bearingDegrees.toRadians()
-    val startLatitude = latitude.toRadians()
-    val startLongitude = longitude.toRadians()
-    val endLatitude = asin(
-        sin(startLatitude) * cos(angularDistance) +
-            cos(startLatitude) * sin(angularDistance) * cos(bearing),
-    )
-    val endLongitude = startLongitude + atan2(
-        sin(bearing) * sin(angularDistance) * cos(startLatitude),
-        cos(angularDistance) - sin(startLatitude) * sin(endLatitude),
-    )
-    return GeoPoint(
-        latitude = endLatitude.toDegrees(),
-        longitude = ((endLongitude.toDegrees() + 540.0) % 360.0) - 180.0,
-    )
-}
-
-private fun bearingDelta(
-    previous: Double?,
-    current: Double?,
-): Double {
-    if (previous == null && current == null) return 0.0
-    if (previous == null || current == null) return 360.0
-    val absoluteDelta = kotlin.math.abs(previous - current)
-    return min(absoluteDelta, 360.0 - absoluteDelta)
-}
-
-private fun Double.normalisedBearing(): Double = ((this % 360.0) + 360.0) % 360.0
-
-private fun Double.toRadians(): Double = this * PI / 180.0
-
-private fun Double.toDegrees(): Double = this * 180.0 / PI
-
-private fun GeoPoint.toNavigationGeoJsonPoint(): Point = Point.fromLngLat(longitude, latitude)
-
-private fun GeoPoint.toLatLng(): LatLng = LatLng(latitude, longitude)
-
-private fun GeoPoint.isRenderable(): Boolean =
-    latitude.isFinite() &&
-        longitude.isFinite() &&
-        latitude in -90.0..90.0 &&
-        longitude in -180.0..180.0
-
-private fun Style.navigationGeoJsonSource(id: String): GeoJsonSource =
-    requireNotNull(getSource(id) as? GeoJsonSource) {
-        "Expected navigation GeoJSON source $id to exist in the loaded map style."
-    }
-
-private fun dpToPx(dp: Int, density: Float): Int = (dp * density).toInt()
-
 private class NavigationMapLifecycleBridge(
     private val mapView: MapView,
 ) {
@@ -933,54 +774,276 @@ private class NavigationMapLowMemoryCallbacks(
     override fun onTrimMemory(level: Int) = Unit
 }
 
-private const val COMPLETED_ROUTE_SOURCE_ID = "gathra-navigation-completed-route-source"
-private const val REMAINING_ROUTE_SOURCE_ID = "gathra-navigation-remaining-route-source"
-private const val ACCURACY_HALO_SOURCE_ID = "gathra-navigation-accuracy-halo-source"
-private const val DESTINATION_SOURCE_ID = "gathra-navigation-destination-source"
-private const val USER_PUCK_SOURCE_ID = "gathra-navigation-user-puck-source"
-private const val USER_HEADING_SOURCE_ID = "gathra-navigation-user-heading-source"
+private data class DisplayRouteSplit(
+    val completed: List<GeoPoint>,
+    val remaining: List<GeoPoint>,
+)
 
-private const val COMPLETED_ROUTE_LAYER_ID = "gathra-navigation-completed-route-layer"
-private const val REMAINING_ROUTE_OUTLINE_LAYER_ID =
-    "gathra-navigation-remaining-route-outline-layer"
-private const val REMAINING_ROUTE_LAYER_ID = "gathra-navigation-remaining-route-layer"
-private const val ACCURACY_HALO_LAYER_ID = "gathra-navigation-accuracy-halo-layer"
-private const val DESTINATION_LAYER_ID = "gathra-navigation-destination-layer"
-private const val USER_PUCK_LAYER_ID = "gathra-navigation-user-puck-layer"
-private const val USER_HEADING_LAYER_ID = "gathra-navigation-user-heading-layer"
+private fun splitRouteForDisplay(
+    route: RouteOption,
+    travelledDistanceMeters: Double,
+): DisplayRouteSplit {
+    val points = route.geometry.points.filter(GeoPoint::isRenderable)
+    if (points.size < MINIMUM_LINE_POINT_COUNT) {
+        return DisplayRouteSplit(emptyList(), emptyList())
+    }
 
-private const val COMPLETED_ROUTE_WIDTH = 5.0f
-private const val COMPLETED_ROUTE_OPACITY = 0.48f
-private const val REMAINING_ROUTE_OUTLINE_WIDTH = 10.0f
-private const val REMAINING_ROUTE_WIDTH = 7.0f
-private const val ACCURACY_HALO_OPACITY = 0.2f
-private const val DESTINATION_RADIUS = 8.0f
+    val routeDistance = route.summary.distanceMeters.toDouble().coerceAtLeast(1.0)
+    val travelledFraction = (travelledDistanceMeters / routeDistance).coerceIn(0.0, 1.0)
+    if (travelledFraction <= 0.0) {
+        return DisplayRouteSplit(emptyList(), points)
+    }
+    if (travelledFraction >= 1.0) {
+        return DisplayRouteSplit(points, emptyList())
+    }
+
+    val segmentLengths = points.zipWithNext { a, b -> a.distanceTo(b) }
+    val visibleLength = segmentLengths.sum()
+    if (visibleLength <= 0.0 || !visibleLength.isFinite()) {
+        return DisplayRouteSplit(emptyList(), points)
+    }
+    val splitDistance = visibleLength * travelledFraction
+    var accumulatedDistance = 0.0
+
+    segmentLengths.forEachIndexed { index, segmentLength ->
+        val segmentEnd = accumulatedDistance + segmentLength
+        if (splitDistance <= segmentEnd && segmentLength > 0.0) {
+            val fractionAlongSegment =
+                ((splitDistance - accumulatedDistance) / segmentLength).coerceIn(0.0, 1.0)
+            val splitPoint = interpolate(
+                start = points[index],
+                end = points[index + 1],
+                fraction = fractionAlongSegment,
+            )
+            val completedPrefix = points.take(index + 1)
+            val remainingSuffix = points.drop(index + 1)
+            return DisplayRouteSplit(
+                completed = if (completedPrefix.lastOrNull() == splitPoint) {
+                    completedPrefix
+                } else {
+                    completedPrefix + splitPoint
+                },
+                remaining = if (remainingSuffix.firstOrNull() == splitPoint) {
+                    remainingSuffix
+                } else {
+                    listOf(splitPoint) + remainingSuffix
+                },
+            )
+        }
+        accumulatedDistance = segmentEnd
+    }
+
+    return DisplayRouteSplit(points, emptyList())
+}
+
+private fun floodFeatureCollection(snapshot: FloodHazardSnapshot): FeatureCollection {
+    val features = snapshot.hazards.mapNotNull { hazard ->
+        val polygonPoints = hazard.rings.map { ring ->
+            ring.filter(GeoPoint::isRenderable).map(GeoPoint::toNavigationGeoJsonPoint)
+        }
+        if (polygonPoints.isEmpty() || polygonPoints.first().size < 3) {
+            null
+        } else {
+            val polygon = Polygon.fromLngLats(polygonPoints)
+            val feature = Feature.fromGeometry(polygon, null, hazard.id)
+            feature.addStringProperty("riskLevel", hazard.level.name)
+            feature
+        }
+    }
+    return FeatureCollection.fromFeatures(features.toTypedArray())
+}
+
+private fun lineFeatureCollection(points: List<GeoPoint>): FeatureCollection {
+    val renderablePoints = points
+        .filter(GeoPoint::isRenderable)
+        .map(GeoPoint::toNavigationGeoJsonPoint)
+    return if (renderablePoints.size >= MINIMUM_LINE_POINT_COUNT) {
+        FeatureCollection.fromFeature(
+            Feature.fromGeometry(LineString.fromLngLats(renderablePoints)),
+        )
+    } else {
+        FeatureCollection.fromFeatures(emptyArray<Feature>())
+    }
+}
+
+private fun navigationPointFeatureCollection(point: GeoPoint?): FeatureCollection =
+    if (point?.isRenderable() == true) {
+        FeatureCollection.fromFeature(
+            Feature.fromGeometry(point.toNavigationGeoJsonPoint()),
+        )
+    } else {
+        FeatureCollection.fromFeatures(emptyArray<Feature>())
+    }
+
+private fun accuracyHaloFeatureCollection(
+    center: GeoPoint?,
+    accuracyMeters: Double?,
+): FeatureCollection {
+    val renderableCenter = center?.takeIf(GeoPoint::isRenderable)
+    val radiusMeters = accuracyMeters
+        ?.takeIf { it > 0.0 }
+        ?: return FeatureCollection.fromFeatures(emptyArray<Feature>())
+    renderableCenter ?: return FeatureCollection.fromFeatures(emptyArray<Feature>())
+
+    val ring = buildList {
+        for (index in 0..ACCURACY_HALO_SEGMENTS) {
+            val bearing = 360.0 * index / ACCURACY_HALO_SEGMENTS
+            add(
+                renderableCenter
+                    .pointAtDistanceAndBearing(radiusMeters, bearing)
+                    .toNavigationGeoJsonPoint(),
+            )
+        }
+    }
+    return FeatureCollection.fromFeature(
+        Feature.fromGeometry(Polygon.fromLngLats(listOf(ring))),
+    )
+}
+
+private fun interpolate(
+    start: GeoPoint,
+    end: GeoPoint,
+    fraction: Double,
+): GeoPoint {
+    val startLatRad = Math.toRadians(start.latitude)
+    val startLonRad = Math.toRadians(start.longitude)
+    val endLatRad = Math.toRadians(end.latitude)
+    val endLonRad = Math.toRadians(end.longitude)
+
+    val deltaLat = endLatRad - startLatRad
+    val deltaLon = endLonRad - startLonRad
+
+    val haversine = sin(deltaLat / 2.0) * sin(deltaLat / 2.0) +
+        cos(startLatRad) * cos(endLatRad) * sin(deltaLon / 2.0) * sin(deltaLon / 2.0)
+    val angularDistance = 2.0 * atan2(sqrt(haversine), sqrt(1.0 - haversine))
+    if (angularDistance == 0.0) return start
+
+    val ratioA = sin((1.0 - fraction) * angularDistance) / sin(angularDistance)
+    val ratioB = sin(fraction * angularDistance) / sin(angularDistance)
+
+    val x = ratioA * cos(startLatRad) * cos(startLonRad) + ratioB * cos(endLatRad) * cos(endLonRad)
+    val y = ratioA * cos(startLatRad) * sin(startLonRad) + ratioB * cos(endLatRad) * sin(endLonRad)
+    val z = ratioA * sin(startLatRad) + ratioB * sin(endLatRad)
+
+    val resultLatRad = atan2(z, sqrt(x * x + y * y))
+    val resultLonRad = atan2(y, x)
+
+    return GeoPoint(
+        latitude = Math.toDegrees(resultLatRad),
+        longitude = Math.toDegrees(resultLonRad),
+    )
+}
+
+private fun GeoPoint.pointAtDistanceAndBearing(
+    distanceMeters: Double,
+    bearingDegrees: Double,
+): GeoPoint {
+    val angularDistance = distanceMeters / EARTH_RADIUS_METERS
+    val bearingRad = Math.toRadians(bearingDegrees)
+    val startLatRad = Math.toRadians(latitude)
+    val startLonRad = Math.toRadians(longitude)
+
+    val endLatRad = asin(
+        sin(startLatRad) * cos(angularDistance) +
+            cos(startLatRad) * sin(angularDistance) * cos(bearingRad),
+    )
+    val endLonRad = startLonRad + atan2(
+        sin(bearingRad) * sin(angularDistance) * cos(startLatRad),
+        cos(angularDistance) - sin(startLatRad) * sin(endLatRad),
+    )
+
+    return GeoPoint(
+        latitude = Math.toDegrees(endLatRad),
+        longitude = Math.toDegrees(endLonRad),
+    )
+}
+
+private fun GeoPoint.distanceTo(other: GeoPoint): Double =
+    GeoMath.distanceMeters(this, other)
+
+private fun Double.normalisedBearing(): Double {
+    val normalised = this % 360.0
+    return if (normalised < 0.0) normalised + 360.0 else normalised
+}
+
+private fun bearingDelta(
+    previous: Double?,
+    current: Double?,
+): Double {
+    if (previous == null || current == null) return 360.0
+    val diff = (current - previous).normalisedBearing()
+    return if (diff > 180.0) 360.0 - diff else diff
+}
+
+private fun Style.navigationGeoJsonSource(id: String): GeoJsonSource =
+    requireNotNull(getSource(id) as? GeoJsonSource) {
+        "Expected GeoJSON source $id to exist in the loaded navigation map style."
+    }
+
+private fun GeoPoint.toNavigationGeoJsonPoint(): Point = Point.fromLngLat(longitude, latitude)
+
+private fun GeoPoint.toLatLng(): LatLng = LatLng(latitude, longitude)
+
+private fun GeoPoint.isRenderable(): Boolean =
+    latitude.isFinite() &&
+        longitude.isFinite() &&
+        latitude in -90.0..90.0 &&
+        longitude in -180.0..180.0
+
+private fun dpToPx(dp: Int, density: Float): Int = (dp * density).toInt()
+
+private const val FLOOD_SOURCE_ID = "gathra-flood-source"
+private const val FLOOD_FILL_LAYER_ID = "gathra-flood-fill"
+private const val FLOOD_OUTLINE_LAYER_ID = "gathra-flood-outline"
+
+private const val COMPLETED_ROUTE_SOURCE_ID = "gathra-nav-completed-route-source"
+private const val REMAINING_ROUTE_SOURCE_ID = "gathra-nav-remaining-route-source"
+private const val ACCURACY_HALO_SOURCE_ID = "gathra-nav-accuracy-halo-source"
+private const val DESTINATION_SOURCE_ID = "gathra-nav-destination-source"
+private const val USER_PUCK_SOURCE_ID = "gathra-nav-user-puck-source"
+private const val USER_HEADING_SOURCE_ID = "gathra-nav-user-heading-source"
+
+private const val COMPLETED_ROUTE_LAYER_ID = "gathra-nav-completed-route-layer"
+private const val REMAINING_ROUTE_OUTLINE_LAYER_ID = "gathra-nav-remaining-route-outline-layer"
+private const val REMAINING_ROUTE_LAYER_ID = "gathra-nav-remaining-route-layer"
+private const val ACCURACY_HALO_LAYER_ID = "gathra-nav-accuracy-halo-layer"
+private const val DESTINATION_LAYER_ID = "gathra-nav-destination-layer"
+private const val USER_HEADING_LAYER_ID = "gathra-nav-user-heading-layer"
+private const val USER_PUCK_LAYER_ID = "gathra-nav-user-puck-layer"
+
+private const val COMPLETED_ROUTE_WIDTH = 6.0f
+private const val COMPLETED_ROUTE_OPACITY = 0.5f
+private const val REMAINING_ROUTE_OUTLINE_WIDTH = 11.0f
+private const val REMAINING_ROUTE_WIDTH = 8.0f
+private const val ACCURACY_HALO_OPACITY = 0.16f
+private const val DESTINATION_RADIUS = 9.0f
 private const val DESTINATION_STROKE_WIDTH = 3.0f
-private const val USER_PUCK_RADIUS = 9.0f
+private const val USER_HEADING_RADIUS = 13.0f
+private const val USER_HEADING_OPACITY = 0.45f
+private const val USER_HEADING_STROKE_WIDTH = 2.0f
+private const val USER_PUCK_RADIUS = 8.0f
 private const val USER_PUCK_STROKE_WIDTH = 3.0f
-private const val USER_HEADING_RADIUS = 3.5f
-private const val USER_HEADING_STROKE_WIDTH = 1.5f
-private const val USER_HEADING_OPACITY = 0.96f
 
-private const val EARTH_RADIUS_METERS = 6_371_008.8
-private const val HEADING_INDICATOR_DISTANCE_METERS = 14.0
-private const val ACCURACY_HALO_SEGMENTS = 36
 private const val MINIMUM_LINE_POINT_COUNT = 2
-private const val MINIMUM_FOLLOW_MOVEMENT_METERS = 1.5
-private const val MINIMUM_BEARING_CHANGE_DEGREES = 8.0
+private const val ACCURACY_HALO_SEGMENTS = 32
+private const val HEADING_INDICATOR_DISTANCE_METERS = 18.0
+private const val MINIMUM_FOLLOW_MOVEMENT_METERS = 2.5
+private const val MINIMUM_BEARING_CHANGE_DEGREES = 4.0
 private const val FOLLOW_ZOOM = 16.5
-private const val FOLLOW_TILT = 40.0
+private const val FOLLOW_TILT = 45.0
 private const val FOLLOW_FLAT_TILT = 0.0
 private const val OVERVIEW_SINGLE_POINT_ZOOM = 15.0
-private const val FOLLOW_CAMERA_ANIMATION_DURATION_MS = 650
+private const val EARTH_RADIUS_METERS = 6_371_000.0
+
+private const val FOLLOW_CAMERA_ANIMATION_DURATION_MS = 600
 private const val OVERVIEW_CAMERA_ANIMATION_DURATION_MS = 700
 
 private const val FOLLOW_HORIZONTAL_PADDING_DP = 24
-private const val FOLLOW_BELOW_CENTER_OFFSET_DP = 112
-private const val FREE_CAMERA_HORIZONTAL_PADDING_DP = 0
-private const val OVERVIEW_HORIZONTAL_PADDING_DP = 48
-private const val OVERVIEW_EXTRA_PADDING_DP = 24
+private const val FOLLOW_BELOW_CENTER_OFFSET_DP = 72
+private const val FREE_CAMERA_HORIZONTAL_PADDING_DP = 16
+private const val OVERVIEW_HORIZONTAL_PADDING_DP = 40
+private const val OVERVIEW_EXTRA_PADDING_DP = 36
 private const val OVERVIEW_HORIZONTAL_PADDING_DIVISOR = 5
-private const val OVERVIEW_VERTICAL_PADDING_DIVISOR = 2
+private const val OVERVIEW_VERTICAL_PADDING_DIVISOR = 3
 private const val MAP_CONTROL_MARGIN_DP = 12
 private const val MAP_ATTRIBUTION_START_MARGIN_DP = 76

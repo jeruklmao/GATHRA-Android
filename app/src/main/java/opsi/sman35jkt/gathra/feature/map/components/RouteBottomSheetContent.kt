@@ -420,11 +420,19 @@ private fun RouteChoiceRow(
 }
 
 @Composable
-private fun FloodRiskBadge(
+internal fun FloodRiskBadge(
     risk: RouteFloodRisk?,
     modifier: Modifier = Modifier,
 ) {
-    val (labelRes, containerColor, contentColor) = when (risk?.level) {
+    FloodRiskBadge(level = risk?.level, modifier = modifier)
+}
+
+@Composable
+internal fun FloodRiskBadge(
+    level: FloodRiskLevel?,
+    modifier: Modifier = Modifier,
+) {
+    val (labelRes, containerColor, contentColor) = when (level) {
         FloodRiskLevel.LOW -> Triple(
             R.string.flood_risk_low,
             MaterialTheme.colorScheme.primaryContainer,
@@ -471,3 +479,4 @@ private fun FloodRiskBadge(
         )
     }
 }
+

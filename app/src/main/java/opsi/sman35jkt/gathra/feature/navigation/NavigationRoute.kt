@@ -20,11 +20,13 @@ import kotlinx.coroutines.launch
 import opsi.sman35jkt.gathra.R
 import opsi.sman35jkt.gathra.core.map.MapLibreNavigationMap
 import opsi.sman35jkt.gathra.core.map.NavigationMapColors
+import opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot
 import opsi.sman35jkt.gathra.ui.theme.GathraTheme
 
 @Composable
 fun NavigationRoute(
     viewModel: NavigationViewModel,
+    floodHazardSnapshot: FloodHazardSnapshot? = null,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -89,6 +91,7 @@ fun NavigationRoute(
                             destinationMarker = themedMapColors.destinationMarker,
                             destinationMarkerStroke = materialColors.surface,
                         ),
+                        floodSnapshot = floodHazardSnapshot,
                         onManualPan = {
                             viewModel.onAction(NavigationAction.MapPanned)
                         },
