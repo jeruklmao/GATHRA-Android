@@ -21,6 +21,13 @@ data class NavigationSession(
     val muted: Boolean = false,
     val voiceUnavailable: Boolean = false,
     val rerouteError: String? = null,
+    val floodRouteStatus: NavigationFloodRouteStatus =
+        if (route.risk?.hazardSnapshotId == null) {
+            NavigationFloodRouteStatus.NOT_EVALUATED
+        } else {
+            NavigationFloodRouteStatus.SYNCHRONIZED
+        },
+    val floodTargetSnapshotId: String? = null,
     val startedAtMillis: Long? = null,
 ) {
     init {

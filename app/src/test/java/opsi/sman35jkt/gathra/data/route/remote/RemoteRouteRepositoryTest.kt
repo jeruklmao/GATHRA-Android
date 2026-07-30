@@ -60,6 +60,30 @@ class RemoteRouteRepositoryTest {
     }
 
     @Test
+    fun `repository preserves specific flood routing failures`() = runTest {
+        val expected = listOf(
+            "NO_ROUTE_DUE_TO_FLOOD" to RouteFailureReason.NO_ROUTE_DUE_TO_FLOOD,
+            "ORIGIN_IN_BLOCKED_AREA" to RouteFailureReason.ORIGIN_IN_BLOCKED_AREA,
+            "DESTINATION_IN_BLOCKED_AREA" to
+                RouteFailureReason.DESTINATION_IN_BLOCKED_AREA,
+        )
+
+        for ((code, reason) in expected) {
+            val repository = repositoryWith {
+                Response.error(
+                    422,
+                    errorJson(code, retryable = false)
+                        .toResponseBody(JSON_MEDIA_TYPE),
+                )
+            }
+            val failure = expectRepositoryFailure {
+                repository.getRoutes(routeRequest())
+            }
+            assertEquals(reason, failure.reason)
+        }
+    }
+
+    @Test
     fun `repository maps DNS failure to offline`() = runTest {
         val repository = repositoryWith { throw UnknownHostException("offline") }
 
@@ -163,6 +187,7 @@ class RemoteRouteRepositoryTest {
             travelMode = travelMode,
             requestedAlternatives = 1,
             returnedAlternatives = 1,
+            flood = validFloodMetadata(),
         ),
     )
 
@@ -173,6 +198,7 @@ class RemoteRouteRepositoryTest {
     ) = RouteResponseDto(
         id = id,
         isRecommended = recommended,
+        risk = validRisk(),
         geometry = GeoJsonLineStringDto(
             type = "LineString",
             coordinates = if (recommended) {
@@ -224,6 +250,26 @@ class RemoteRouteRepositoryTest {
                 geometryEndIndex = if (recommended) 1 else 2,
             ),
         ),
+    )
+
+    private fun validRisk() = RouteRiskResponseDto(
+        level = "LOW",
+        score = 0.0,
+        intersectsBlockedArea = false,
+        affectedDistanceMeters = 0,
+        confidence = 0.9,
+        reasonCodes = listOf("NO_ACTIVE_FLOOD_INTERSECTION"),
+        evaluatedAt = "2026-07-30T10:00:00.000Z",
+        validUntil = "2026-07-30T11:00:00.000Z",
+        hazardSnapshotId = "snapshot_v1_0",
+    )
+
+    private fun validFloodMetadata() = FloodMetadataResponseDto(
+        source = "SIMULATED",
+        snapshotId = "snapshot_v1_0",
+        evaluatedAt = "2026-07-30T10:00:00.000Z",
+        validUntil = "2026-07-30T11:00:00.000Z",
+        activeHazardCount = 0,
     )
 
     private fun errorJson(code: String, retryable: Boolean) =

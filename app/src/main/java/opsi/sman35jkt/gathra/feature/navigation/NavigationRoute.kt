@@ -39,6 +39,23 @@ fun NavigationRoute(
     val themedMapColors = GathraTheme.mapColors
     val materialColors = MaterialTheme.colorScheme
 
+    LaunchedEffect(
+        floodHazardSnapshot?.snapshotId,
+        state.session?.route?.risk?.hazardSnapshotId,
+    ) {
+        val displayedSnapshotId = floodHazardSnapshot?.snapshotId
+        val routeSnapshotId = state.session?.route?.risk?.hazardSnapshotId
+        if (
+            displayedSnapshotId != null &&
+            routeSnapshotId != null &&
+            displayedSnapshotId != routeSnapshotId
+        ) {
+            viewModel.onAction(
+                NavigationAction.FloodSnapshotChanged(displayedSnapshotId),
+            )
+        }
+    }
+
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             snackbarHostState.showSnackbar(

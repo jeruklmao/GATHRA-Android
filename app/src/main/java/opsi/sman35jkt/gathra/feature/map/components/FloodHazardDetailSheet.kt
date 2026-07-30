@@ -65,15 +65,6 @@ fun FloodHazardDetailSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            hazard.description?.let { desc ->
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = desc,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                )
-            }
-
             hazard.confidence?.let { conf ->
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
@@ -129,5 +120,5 @@ private fun FloodHazardLevel.toRouteFloodRiskLevel() = when (this) {
     FloodHazardLevel.MEDIUM -> opsi.sman35jkt.gathra.core.model.FloodRiskLevel.MEDIUM
     FloodHazardLevel.HIGH -> opsi.sman35jkt.gathra.core.model.FloodRiskLevel.HIGH
     FloodHazardLevel.BLOCKED -> opsi.sman35jkt.gathra.core.model.FloodRiskLevel.BLOCKED
-    FloodHazardLevel.UNKNOWN -> opsi.sman35jkt.gathra.core.model.FloodRiskLevel.LOW
+    FloodHazardLevel.UNKNOWN -> opsi.sman35jkt.gathra.core.model.FloodRiskLevel.UNKNOWN
 }

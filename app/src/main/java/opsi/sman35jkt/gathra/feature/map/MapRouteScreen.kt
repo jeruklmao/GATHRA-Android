@@ -172,6 +172,11 @@ fun MapRouteScreen(
                     },
                     routes = state.routes,
                     selectedRouteId = state.selectedRouteId,
+                    floodDataStatus = state.floodDataStatus,
+                    floodRouteSyncState = state.floodRouteSyncState,
+                    isLoadingFloodHazards = state.isLoadingFloodHazards,
+                    riskIsCurrent = state.isSelectedRouteRiskCurrent,
+                    canStartNavigation = state.canUseSelectedRoute,
                     expanded = state.bottomSheetState == RouteBottomSheetState.EXPANDED,
                     onTravelModeSelected = {
                         onAction(MapRouteAction.TravelModeSelected(it))
@@ -180,6 +185,12 @@ fun MapRouteScreen(
                         onAction(MapRouteAction.RouteSelected(it))
                     },
                     onRetry = { onAction(MapRouteAction.RetryRoute) },
+                    onFloodRefresh = {
+                        onAction(MapRouteAction.RefreshFloodHazards)
+                    },
+                    onFloodRouteRetry = {
+                        onAction(MapRouteAction.RetryFloodRouteUpdate)
+                    },
                     onPreview = { onAction(MapRouteAction.PreviewClicked) },
                 )
             },

@@ -6,6 +6,10 @@ import opsi.sman35jkt.gathra.core.model.SelectedPlace
 import opsi.sman35jkt.gathra.core.model.TravelMode
 
 sealed interface MapRouteAction {
+    data object ScreenStarted : MapRouteAction
+
+    data object ScreenStopped : MapRouteAction
+
     data class StartPointSelection(val mode: PointSelectionMode) : MapRouteAction
 
     data class SearchRequested(val mode: PointSelectionMode) : MapRouteAction
@@ -57,6 +61,8 @@ sealed interface MapRouteAction {
     data object PreviewClicked : MapRouteAction
 
     data object RefreshFloodHazards : MapRouteAction
+
+    data object RetryFloodRouteUpdate : MapRouteAction
 
     data object ToggleFloodLayer : MapRouteAction
 

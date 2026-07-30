@@ -21,8 +21,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import opsi.sman35jkt.gathra.core.model.GeoPoint
+import opsi.sman35jkt.gathra.core.model.FloodRiskLevel
 import opsi.sman35jkt.gathra.core.model.ManeuverModifier
 import opsi.sman35jkt.gathra.core.model.ManeuverType
+import opsi.sman35jkt.gathra.core.model.RouteFloodRisk
 import opsi.sman35jkt.gathra.core.model.RouteGeometry
 import opsi.sman35jkt.gathra.core.model.RouteManeuver
 import opsi.sman35jkt.gathra.core.model.RouteOption
@@ -30,6 +32,7 @@ import opsi.sman35jkt.gathra.core.model.RouteStep
 import opsi.sman35jkt.gathra.core.model.RouteSummary
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import opsi.sman35jkt.gathra.domain.navigation.NavigationLocationSample
+import opsi.sman35jkt.gathra.domain.navigation.NavigationFloodRouteStatus
 import opsi.sman35jkt.gathra.domain.navigation.NavigationProgress
 import opsi.sman35jkt.gathra.domain.navigation.NavigationSession
 import opsi.sman35jkt.gathra.domain.navigation.NavigationStatus
@@ -160,6 +163,32 @@ class NavigationScreenTest {
     }
 
     @Test
+    fun staleFloodRouteShowsWarningWithoutReplacingGuidance() {
+        val actions = mutableListOf<NavigationAction>()
+        val initial = navigatingState()
+        setScreen(
+            state = initial.copy(
+                session = requireNotNull(initial.session).copy(
+                    floodRouteStatus = NavigationFloodRouteStatus.STALE,
+                    floodTargetSnapshotId = "snapshot-b",
+                ),
+            ),
+            onAction = actions::add,
+        )
+
+        composeRule.onNodeWithText(
+            "Rute belum diperbarui setelah perubahan kondisi banjir. " +
+                "Panduan lama tetap terlihat, tetapi risikonya mungkin sudah berubah.",
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText("Belok kanan ke Jalan Merdeka")
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Coba lagi").performClick()
+        composeRule.runOnIdle {
+            assertTrue(actions.contains(NavigationAction.RetryReroute))
+        }
+    }
+
+    @Test
     fun compactScreenAtTwoTimesFontKeepsCriticalControlsReachable() {
         val longStreetName =
             "Jalan Pengujian Aksesibilitas dengan Nama yang Sangat Panjang"
@@ -282,6 +311,17 @@ class NavigationScreenTest {
                 durationSeconds = 600,
             ),
             isRecommended = true,
+            risk = RouteFloodRisk(
+                level = FloodRiskLevel.LOW,
+                score = 0.0,
+                intersectsBlockedArea = false,
+                affectedDistanceMeters = 0,
+                confidence = 0.9,
+                reasonCodes = listOf("TEST_FIXTURE"),
+                evaluatedAtEpochMillis = 1_000L,
+                validUntilEpochMillis = 10_000L,
+                hazardSnapshotId = "snapshot-a",
+            ),
             steps = listOf(
                 routeStep(
                     index = 0,

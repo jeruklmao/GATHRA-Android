@@ -251,6 +251,16 @@ private class MapRouteRenderer(
                 .build()
 
             val clickListener = MapLibreMap.OnMapClickListener { coordinate ->
+                if (isSelectionEnabled()) {
+                    onMapTap().invoke(
+                        GeoPoint(
+                            latitude = coordinate.latitude,
+                            longitude = coordinate.longitude,
+                        ),
+                    )
+                    return@OnMapClickListener true
+                }
+
                 val pixel = readyMap.projection.toScreenLocation(coordinate)
                 val floodFeatures = readyMap.queryRenderedFeatures(pixel, FLOOD_FILL_LAYER_ID)
 
@@ -262,17 +272,7 @@ private class MapRouteRenderer(
                     }
                 }
 
-                if (isSelectionEnabled()) {
-                    onMapTap().invoke(
-                        GeoPoint(
-                            latitude = coordinate.latitude,
-                            longitude = coordinate.longitude,
-                        ),
-                    )
-                    true
-                } else {
-                    false
-                }
+                false
             }
             mapClickListener = clickListener
             readyMap.addOnMapClickListener(clickListener)

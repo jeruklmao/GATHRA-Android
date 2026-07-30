@@ -1,6 +1,7 @@
 package opsi.sman35jkt.gathra.data.route.remote
 
 import opsi.sman35jkt.gathra.core.model.GeoPoint
+import opsi.sman35jkt.gathra.core.model.FloodRiskLevel
 import opsi.sman35jkt.gathra.core.model.ManeuverType
 import opsi.sman35jkt.gathra.core.model.RouteRequest
 import opsi.sman35jkt.gathra.core.model.TravelMode
@@ -190,12 +191,93 @@ class RouteDtoMapperTest {
         }
     }
 
+    @Test
+    fun `response rejects a route risk from a different flood snapshot`() {
+        val response = validResponse().let { value ->
+            value.copy(
+                routes = value.routes.mapIndexed { index, route ->
+                    if (index == 0) {
+                        route.copy(
+                            risk = route.risk?.copy(
+                                hazardSnapshotId = "snapshot_v2_1",
+                            ),
+                        )
+                    } else {
+                        route
+                    }
+                },
+            )
+        }
+
+        assertThrows(InvalidRouteResponseException::class.java) {
+            RouteDtoMapper.toDomain(response, request)
+        }
+    }
+
+    @Test
+    fun `response rejects a recommended route intersecting a blocked area`() {
+        val response = validResponse().let { value ->
+            value.copy(
+                routes = value.routes.mapIndexed { index, route ->
+                    if (index == 0) {
+                        route.copy(
+                            risk = route.risk?.copy(
+                                level = "BLOCKED",
+                                score = 1.0,
+                                intersectsBlockedArea = true,
+                            ),
+                        )
+                    } else {
+                        route
+                    }
+                },
+            )
+        }
+
+        assertThrows(InvalidRouteResponseException::class.java) {
+            RouteDtoMapper.toDomain(response, request)
+        }
+    }
+
+    @Test
+    fun `response preserves an explicit unknown flood risk`() {
+        val response = validResponse().let { value ->
+            value.copy(
+                routes = value.routes.map { route ->
+                    route.copy(risk = route.risk?.copy(level = "UNKNOWN"))
+                },
+            )
+        }
+
+        val routes = RouteDtoMapper.toDomain(response, request)
+
+        assertEquals(FloodRiskLevel.UNKNOWN, routes.first().risk?.level)
+    }
+
+    @Test
+    fun `response rejects client-only or unknown flood risk values`() {
+        listOf("NOT_EVALUATED", "PROVIDER_PRIVATE_LEVEL").forEach { invalidLevel ->
+            val response = validResponse().let { value ->
+                value.copy(
+                    routes = value.routes.map { route ->
+                        route.copy(risk = route.risk?.copy(level = invalidLevel))
+                    },
+                )
+            }
+
+            assertThrows(InvalidRouteResponseException::class.java) {
+                RouteDtoMapper.toDomain(response, request)
+            }
+        }
+    }
+
     private fun validResponse() = RoutePreviewResponseDto(
         requestId = "request-1",
         routes = listOf(
             RouteResponseDto(
                 id = "route-primary",
                 isRecommended = true,
+                risk = validRisk(),
                 geometry = GeoJsonLineStringDto(
                     type = "LineString",
                     coordinates = listOf(
@@ -213,6 +295,7 @@ class RouteDtoMapperTest {
             RouteResponseDto(
                 id = "route-alternative",
                 isRecommended = false,
+                risk = validRisk(),
                 geometry = GeoJsonLineStringDto(
                     type = "LineString",
                     coordinates = listOf(
@@ -232,7 +315,26 @@ class RouteDtoMapperTest {
             travelMode = "CAR",
             requestedAlternatives = 1,
             returnedAlternatives = 1,
+            flood = FloodMetadataResponseDto(
+                source = "SIMULATED",
+                snapshotId = "snapshot_v1_0",
+                evaluatedAt = "2026-07-30T10:00:00.000Z",
+                validUntil = "2026-07-30T11:00:00.000Z",
+                activeHazardCount = 0,
+            ),
         ),
+    )
+
+    private fun validRisk() = RouteRiskResponseDto(
+        level = "LOW",
+        score = 0.0,
+        intersectsBlockedArea = false,
+        affectedDistanceMeters = 0,
+        confidence = 0.9,
+        reasonCodes = listOf("NO_ACTIVE_FLOOD_INTERSECTION"),
+        evaluatedAt = "2026-07-30T10:00:00.000Z",
+        validUntil = "2026-07-30T11:00:00.000Z",
+        hazardSnapshotId = "snapshot_v1_0",
     )
 
     private fun validSteps(lastGeometryIndex: Int) = listOf(

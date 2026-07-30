@@ -35,7 +35,9 @@ data class MapRouteUiState(
     val selectedFloodHazardId: String? = null,
     val isFloodLayerVisible: Boolean = true,
     val isLoadingFloodHazards: Boolean = false,
-    val isFloodSnapshotOutOfSync: Boolean = false,
+    val floodDataStatus: FloodDataStatus = FloodDataStatus.UNAVAILABLE,
+    val floodRouteSyncState: FloodRouteSyncState = FloodRouteSyncState.NOT_EVALUATED,
+    val floodRouteTargetSnapshotId: String? = null,
 ) {
     val selectedRoute: RouteOption?
         get() = routes.firstOrNull { it.id == selectedRouteId }
@@ -51,6 +53,24 @@ data class MapRouteUiState(
 
     val selectedFloodHazard: FloodHazardPolygon?
         get() = floodHazardSnapshot?.hazards?.firstOrNull { it.id == selectedFloodHazardId }
+
+    val isFloodSnapshotOutOfSync: Boolean
+        get() = floodRouteSyncState in setOf(
+            FloodRouteSyncState.OUTDATED_BY_FLOOD_UPDATE,
+            FloodRouteSyncState.UPDATING,
+            FloodRouteSyncState.STALE,
+        )
+
+    val isSelectedRouteRiskCurrent: Boolean
+        get() = floodDataStatus == FloodDataStatus.FRESH &&
+            floodRouteSyncState == FloodRouteSyncState.SYNCHRONIZED
+
+    val canUseSelectedRoute: Boolean
+        get() = floodRouteSyncState !in setOf(
+            FloodRouteSyncState.OUTDATED_BY_FLOOD_UPDATE,
+            FloodRouteSyncState.UPDATING,
+            FloodRouteSyncState.STALE,
+        )
 }
 
 enum class PointSelectionMode {
@@ -83,6 +103,23 @@ enum class MapRouteError {
     ROUTE_OFFLINE,
     ROUTE_TIMEOUT,
     ROUTE_NOT_FOUND,
+    NO_ROUTE_DUE_TO_FLOOD,
+    ORIGIN_IN_BLOCKED_AREA,
+    DESTINATION_IN_BLOCKED_AREA,
     ROUTE_INVALID_RESPONSE,
     ROUTE_SERVICE_UNAVAILABLE,
+}
+
+enum class FloodDataStatus {
+    UNAVAILABLE,
+    FRESH,
+    STALE,
+}
+
+enum class FloodRouteSyncState {
+    NOT_EVALUATED,
+    SYNCHRONIZED,
+    OUTDATED_BY_FLOOD_UPDATE,
+    UPDATING,
+    STALE,
 }

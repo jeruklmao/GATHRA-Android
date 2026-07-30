@@ -19,6 +19,7 @@ import opsi.sman35jkt.gathra.core.location.NavigationLocationEvent
 import opsi.sman35jkt.gathra.core.location.NavigationLocationSource
 import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.RouteRequest
+import opsi.sman35jkt.gathra.domain.navigation.NavigationFloodRouteStatus
 import opsi.sman35jkt.gathra.domain.navigation.NavigationLocationSample
 import opsi.sman35jkt.gathra.domain.navigation.NavigationStatus
 import opsi.sman35jkt.gathra.domain.navigation.VoiceInstructionEvent
@@ -36,6 +37,7 @@ class NavigationSessionEngine(
     private val locationSource: NavigationLocationSource,
     private val workDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val elapsedRealtimeMillis: () -> Long = SystemClock::elapsedRealtime,
+    private val floodRerouteCooldownMillis: Long = FLOOD_REROUTE_COOLDOWN_MILLIS,
 ) {
     private val _voiceEvents = MutableSharedFlow<VoiceInstructionEvent>(
         extraBufferCapacity = 8,
@@ -54,8 +56,13 @@ class NavigationSessionEngine(
     private var locationJob: Job? = null
     private var watchdogJob: Job? = null
     private var rerouteJob: Job? = null
+    private var floodCooldownJob: Job? = null
     private var progressCalculator: NavigationProgressCalculator? = null
     private var latestAcceptedLocation: NavigationLocationSample? = null
+    private var pendingFloodSnapshotId: String? = null
+    private var lastFloodRerouteSnapshotId: String? = null
+    private var activeFloodRerouteSnapshotId: String? = null
+    private var lastFloodRerouteStartedAtMillis: Long = Long.MIN_VALUE
 
     fun start(scope: CoroutineScope): Boolean {
         val session = sessionRepository.session.value ?: return false
@@ -65,6 +72,10 @@ class NavigationSessionEngine(
         serviceScope = scope
         running.set(true)
         latestAcceptedLocation = null
+        pendingFloodSnapshotId = null
+        lastFloodRerouteSnapshotId = null
+        activeFloodRerouteSnapshotId = null
+        lastFloodRerouteStartedAtMillis = Long.MIN_VALUE
         deviationDetector.reset(clearCooldown = true)
         progressCalculator = NavigationProgressCalculator(
             route = session.route,
@@ -80,7 +91,45 @@ class NavigationSessionEngine(
     fun retryReroute() {
         val location = latestAcceptedLocation ?: return
         if (rerouteJob?.isActive == true) return
-        startReroute(location)
+        val session = sessionRepository.session.value
+        val floodSnapshotId = session?.floodTargetSnapshotId
+        if (
+            session?.floodRouteStatus ==
+            NavigationFloodRouteStatus.STALE &&
+            floodSnapshotId != null
+        ) {
+            pendingFloodSnapshotId = floodSnapshotId
+            requestFloodReroute(location, floodSnapshotId, force = true)
+        } else {
+            startReroute(location, RerouteReason.OFF_ROUTE)
+        }
+    }
+
+    fun revalidateFloodSnapshot(snapshotId: String) {
+        if (!running.get() || snapshotId.isBlank()) return
+        val session = sessionRepository.session.value ?: return
+        if (session.route.risk?.hazardSnapshotId == snapshotId) {
+            cancelSupersededFloodReroute(snapshotId)
+            pendingFloodSnapshotId = null
+            sessionRepository.markFloodRouteSynchronized()
+            return
+        }
+        if (
+            session.floodTargetSnapshotId == snapshotId &&
+            session.floodRouteStatus in setOf(
+                NavigationFloodRouteStatus.UPDATING,
+                NavigationFloodRouteStatus.STALE,
+            )
+        ) {
+            return
+        }
+
+        cancelSupersededFloodReroute(snapshotId)
+        pendingFloodSnapshotId = snapshotId
+        sessionRepository.markFloodRouteUpdating(snapshotId)
+        latestAcceptedLocation?.let { location ->
+            requestFloodReroute(location, snapshotId)
+        }
     }
 
     fun stop() {
@@ -91,6 +140,9 @@ class NavigationSessionEngine(
         deviationDetector.reset(clearCooldown = true)
         progressCalculator = null
         latestAcceptedLocation = null
+        pendingFloodSnapshotId = null
+        lastFloodRerouteSnapshotId = null
+        activeFloodRerouteSnapshotId = null
         sessionRepository.finish()
     }
 
@@ -101,6 +153,8 @@ class NavigationSessionEngine(
         watchdogJob = null
         rerouteJob?.cancel()
         rerouteJob = null
+        floodCooldownJob?.cancel()
+        floodCooldownJob = null
         rerouteTracker.invalidate()
     }
 
@@ -208,16 +262,83 @@ class NavigationSessionEngine(
 
         when {
             progress.isArrived -> pauseAfterArrival()
-            progress.shouldReroute -> startReroute(sample)
+            pendingFloodSnapshotId != null -> requestFloodReroute(
+                sample,
+                requireNotNull(pendingFloodSnapshotId),
+            )
+            progress.shouldReroute -> startReroute(sample, RerouteReason.OFF_ROUTE)
         }
     }
 
-    private fun startReroute(location: NavigationLocationSample) {
+    private fun requestFloodReroute(
+        location: NavigationLocationSample,
+        snapshotId: String,
+        force: Boolean = false,
+    ) {
+        if (
+            !force &&
+            lastFloodRerouteSnapshotId == snapshotId
+        ) {
+            return
+        }
+        val remainingCooldown = if (lastFloodRerouteStartedAtMillis == Long.MIN_VALUE) {
+            0L
+        } else {
+            floodRerouteCooldownMillis -
+                (elapsedRealtimeMillis() - lastFloodRerouteStartedAtMillis)
+        }
+        if (!force && remainingCooldown > 0L) {
+            if (floodCooldownJob?.isActive == true) return
+            val scope = serviceScope ?: return
+            floodCooldownJob = scope.launch {
+                delay(remainingCooldown)
+                val latestSnapshotId = pendingFloodSnapshotId
+                val latestLocation = latestAcceptedLocation
+                floodCooldownJob = null
+                if (
+                    running.get() &&
+                    latestSnapshotId != null &&
+                    latestLocation != null
+                ) {
+                    startReroute(
+                        latestLocation,
+                        RerouteReason.FLOOD_UPDATE,
+                        latestSnapshotId,
+                    )
+                }
+            }
+            return
+        }
+        startReroute(location, RerouteReason.FLOOD_UPDATE, snapshotId)
+    }
+
+    private fun startReroute(
+        location: NavigationLocationSample,
+        reason: RerouteReason,
+        targetFloodSnapshotId: String? = null,
+    ) {
         val scope = serviceScope ?: return
         val session = sessionRepository.session.value ?: return
-        if (rerouteJob?.isActive == true) return
+        if (rerouteJob?.isActive == true) {
+            if (
+                reason != RerouteReason.FLOOD_UPDATE ||
+                targetFloodSnapshotId == activeFloodRerouteSnapshotId
+            ) {
+                return
+            }
+            rerouteJob?.cancel()
+            rerouteTracker.invalidate()
+        }
 
         val generation = rerouteTracker.beginRequest()
+        if (reason == RerouteReason.FLOOD_UPDATE) {
+            val snapshotId = targetFloodSnapshotId ?: return
+            pendingFloodSnapshotId = snapshotId
+            lastFloodRerouteSnapshotId = snapshotId
+            activeFloodRerouteSnapshotId = snapshotId
+            lastFloodRerouteStartedAtMillis = elapsedRealtimeMillis()
+            sessionRepository.markFloodRouteUpdating(snapshotId)
+        }
         sessionRepository.transitionTo(NavigationStatus.RECALCULATING)
         rerouteJob = scope.launch {
             try {
@@ -237,6 +358,26 @@ class NavigationSessionEngine(
                 if (route.steps.isEmpty()) {
                     error("Reroute response contained no navigation steps.")
                 }
+                val floodResultIsCurrent =
+                    reason != RerouteReason.FLOOD_UPDATE ||
+                        (
+                            route.risk?.hazardSnapshotId == targetFloodSnapshotId &&
+                                pendingFloodSnapshotId == targetFloodSnapshotId &&
+                                sessionRepository.session.value
+                                    ?.floodTargetSnapshotId == targetFloodSnapshotId
+                            )
+                if (!floodResultIsCurrent) {
+                    if (
+                        pendingFloodSnapshotId == targetFloodSnapshotId &&
+                        sessionRepository.session.value
+                            ?.floodTargetSnapshotId == targetFloodSnapshotId
+                    ) {
+                        sessionRepository.markFloodRouteStale(
+                            requireNotNull(targetFloodSnapshotId),
+                        )
+                    }
+                    return@launch
+                }
                 val newCalculator = NavigationProgressCalculator(
                     route = route,
                     deviationDetector = deviationDetector,
@@ -245,14 +386,46 @@ class NavigationSessionEngine(
                 progressCalculator = newCalculator
                 voicePolicy.reset()
                 sessionRepository.replaceRoute(route, location, progress)
+                if (reason == RerouteReason.FLOOD_UPDATE) {
+                    pendingFloodSnapshotId = null
+                }
                 startLocationCollection(route)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Throwable) {
                 if (rerouteTracker.isCurrent(generation) && running.get()) {
-                    sessionRepository.markRerouteFailed()
+                    if (
+                        reason == RerouteReason.FLOOD_UPDATE &&
+                        targetFloodSnapshotId != null
+                    ) {
+                        sessionRepository.markFloodRouteStale(targetFloodSnapshotId)
+                    } else {
+                        sessionRepository.markRerouteFailed()
+                    }
+                }
+            } finally {
+                if (
+                    reason == RerouteReason.FLOOD_UPDATE &&
+                    rerouteTracker.isCurrent(generation) &&
+                    activeFloodRerouteSnapshotId == targetFloodSnapshotId
+                ) {
+                    activeFloodRerouteSnapshotId = null
                 }
             }
+        }
+    }
+
+    private fun cancelSupersededFloodReroute(snapshotId: String) {
+        floodCooldownJob?.cancel()
+        floodCooldownJob = null
+        if (
+            rerouteJob?.isActive == true &&
+            activeFloodRerouteSnapshotId != snapshotId
+        ) {
+            rerouteTracker.invalidate()
+            rerouteJob?.cancel()
+            rerouteJob = null
+            activeFloodRerouteSnapshotId = null
         }
     }
 
@@ -270,14 +443,22 @@ class NavigationSessionEngine(
         locationJob?.cancel()
         watchdogJob?.cancel()
         rerouteJob?.cancel()
+        floodCooldownJob?.cancel()
         locationJob = null
         watchdogJob = null
         rerouteJob = null
+        floodCooldownJob = null
     }
 
     private companion object {
         const val GPS_WATCHDOG_INTERVAL_MILLIS = 5_000L
         const val GPS_UNAVAILABLE_AFTER_MILLIS = 12_000L
         const val LOCATION_SOURCE_RETRY_DELAY_MILLIS = 5_000L
+        const val FLOOD_REROUTE_COOLDOWN_MILLIS = 5_000L
     }
+}
+
+private enum class RerouteReason {
+    OFF_ROUTE,
+    FLOOD_UPDATE,
 }

@@ -69,7 +69,11 @@ internal class RemoteRouteRepository(
         }.getOrNull()
 
         val reason = when (backendCode) {
-            ERROR_NO_ROUTE, ERROR_NO_ROUTE_DUE_TO_FLOOD -> RouteFailureReason.NO_ROUTE
+            ERROR_NO_ROUTE -> RouteFailureReason.NO_ROUTE
+            ERROR_NO_ROUTE_DUE_TO_FLOOD -> RouteFailureReason.NO_ROUTE_DUE_TO_FLOOD
+            ERROR_ORIGIN_IN_BLOCKED_AREA -> RouteFailureReason.ORIGIN_IN_BLOCKED_AREA
+            ERROR_DESTINATION_IN_BLOCKED_AREA ->
+                RouteFailureReason.DESTINATION_IN_BLOCKED_AREA
             ERROR_ROUTING_TIMEOUT -> RouteFailureReason.TIMEOUT
             ERROR_ROUTING_RESPONSE_INVALID -> RouteFailureReason.INVALID_RESPONSE
             ERROR_ROUTING_UNAVAILABLE -> RouteFailureReason.SERVER_UNAVAILABLE
@@ -87,6 +91,8 @@ internal class RemoteRouteRepository(
     private companion object {
         const val ERROR_NO_ROUTE = "NO_ROUTE"
         const val ERROR_NO_ROUTE_DUE_TO_FLOOD = "NO_ROUTE_DUE_TO_FLOOD"
+        const val ERROR_ORIGIN_IN_BLOCKED_AREA = "ORIGIN_IN_BLOCKED_AREA"
+        const val ERROR_DESTINATION_IN_BLOCKED_AREA = "DESTINATION_IN_BLOCKED_AREA"
         const val ERROR_ROUTING_TIMEOUT = "ROUTING_TIMEOUT"
         const val ERROR_ROUTING_RESPONSE_INVALID = "ROUTING_RESPONSE_INVALID"
         const val ERROR_ROUTING_UNAVAILABLE = "ROUTING_UNAVAILABLE"

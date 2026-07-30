@@ -77,6 +77,7 @@ fun MapRouteRoute(
         R.string.navigation_service_start_failed,
     )
     val floodSnapshotUpdatedNotice = stringResource(R.string.flood_snapshot_updated)
+    val floodRouteOutdatedMessage = stringResource(R.string.flood_route_outdated_message)
     val permissionPreferences = remember(context) {
         context.getSharedPreferences(
             LOCATION_PERMISSION_PREFERENCES,
@@ -252,6 +253,8 @@ fun MapRouteRoute(
                         MapRouteMessage.LOCATION_UNAVAILABLE -> locationUnavailableMessage
                         MapRouteMessage.NAVIGATION_ROUTE_UNAVAILABLE ->
                             routeUnavailableMessage
+                        MapRouteMessage.FLOOD_ROUTE_OUTDATED ->
+                            floodRouteOutdatedMessage
                     },
                 )
                 is MapRouteEffect.OpenPlaceSearch -> onOpenPlaceSearch(

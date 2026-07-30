@@ -9,6 +9,7 @@ import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import opsi.sman35jkt.gathra.domain.navigation.NavigationLocationSample
+import opsi.sman35jkt.gathra.domain.navigation.NavigationFloodRouteStatus
 import opsi.sman35jkt.gathra.domain.navigation.NavigationProgress
 import opsi.sman35jkt.gathra.domain.navigation.NavigationRepository
 import opsi.sman35jkt.gathra.domain.navigation.NavigationSession
@@ -105,6 +106,13 @@ class NavigationSessionRepository : NavigationRepository {
                             rawLocation = rawLocation ?: active.rawLocation,
                             progress = progress,
                             rerouteError = null,
+                            floodRouteStatus =
+                                if (route.risk?.hazardSnapshotId == null) {
+                                    NavigationFloodRouteStatus.NOT_EVALUATED
+                                } else {
+                                    NavigationFloodRouteStatus.SYNCHRONIZED
+                                },
+                            floodTargetSnapshotId = null,
                         ),
                         NavigationStatus.NAVIGATING,
                     )
@@ -130,6 +138,52 @@ class NavigationSessionRepository : NavigationRepository {
                     current
                 }
             }
+        }
+    }
+
+    fun markFloodRouteUpdating(snapshotId: String) {
+        _session.update { current ->
+            current?.copy(
+                floodRouteStatus = NavigationFloodRouteStatus.UPDATING,
+                floodTargetSnapshotId = snapshotId,
+            )
+        }
+    }
+
+    fun markFloodRouteStale(snapshotId: String) {
+        _session.update { current ->
+            current?.let {
+                val navigable = if (
+                    it.status == NavigationStatus.RECALCULATING &&
+                    NavigationStateMachine.canTransition(
+                        it.status,
+                        NavigationStatus.NAVIGATING,
+                    )
+                ) {
+                    NavigationStateMachine.transition(it, NavigationStatus.NAVIGATING)
+                } else {
+                    it
+                }
+                navigable.copy(
+                    floodRouteStatus = NavigationFloodRouteStatus.STALE,
+                    floodTargetSnapshotId = snapshotId,
+                    rerouteError = null,
+                )
+            }
+        }
+    }
+
+    fun markFloodRouteSynchronized() {
+        _session.update { current ->
+            current?.copy(
+                floodRouteStatus =
+                    if (current.route.risk?.hazardSnapshotId == null) {
+                        NavigationFloodRouteStatus.NOT_EVALUATED
+                    } else {
+                        NavigationFloodRouteStatus.SYNCHRONIZED
+                    },
+                floodTargetSnapshotId = null,
+            )
         }
     }
 

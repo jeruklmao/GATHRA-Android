@@ -67,6 +67,9 @@ class NavigationForegroundService : Service() {
             ACTION_START -> startNavigation()
             ACTION_STOP -> stopNavigation()
             ACTION_RETRY_REROUTE -> engine.retryReroute()
+            ACTION_REVALIDATE_FLOOD_SNAPSHOT -> intent
+                .getStringExtra(EXTRA_FLOOD_SNAPSHOT_ID)
+                ?.let(engine::revalidateFloodSnapshot)
             ACTION_SET_SIMULATION_PAUSED -> engine.setSimulationPaused(
                 intent.getBooleanExtra(EXTRA_PAUSED, false),
             )
@@ -146,7 +149,14 @@ class NavigationForegroundService : Service() {
             NavigationStatus.PREPARING ->
                 getString(R.string.navigation_notification_preparing)
             NavigationStatus.RECALCULATING ->
-                getString(R.string.navigation_recalculating)
+                if (
+                    session.floodRouteStatus ==
+                    opsi.sman35jkt.gathra.domain.navigation.NavigationFloodRouteStatus.UPDATING
+                ) {
+                    getString(R.string.navigation_flood_recalculating)
+                } else {
+                    getString(R.string.navigation_recalculating)
+                }
             NavigationStatus.OFF_ROUTE ->
                 getString(R.string.navigation_off_route)
             NavigationStatus.GPS_UNAVAILABLE ->
@@ -208,6 +218,8 @@ class NavigationForegroundService : Service() {
             "opsi.sman35jkt.gathra.navigation.action.STOP"
         const val ACTION_RETRY_REROUTE =
             "opsi.sman35jkt.gathra.navigation.action.RETRY_REROUTE"
+        const val ACTION_REVALIDATE_FLOOD_SNAPSHOT =
+            "opsi.sman35jkt.gathra.navigation.action.REVALIDATE_FLOOD_SNAPSHOT"
         const val ACTION_SET_SIMULATION_PAUSED =
             "opsi.sman35jkt.gathra.navigation.action.SET_SIMULATION_PAUSED"
         const val ACTION_SET_SIMULATION_SPEED =
@@ -216,6 +228,7 @@ class NavigationForegroundService : Service() {
             "opsi.sman35jkt.gathra.navigation.action.SIMULATE_OFF_ROUTE"
         const val EXTRA_PAUSED = "paused"
         const val EXTRA_SPEED_MULTIPLIER = "speed_multiplier"
+        const val EXTRA_FLOOD_SNAPSHOT_ID = "flood_snapshot_id"
 
         fun intent(context: Context, action: String): Intent =
             Intent(context, NavigationForegroundService::class.java)
