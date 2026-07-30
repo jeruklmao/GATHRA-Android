@@ -44,6 +44,21 @@ class NavigationServiceController(context: Context) {
         sendAction(NavigationForegroundService.ACTION_RETRY_REROUTE)
     }.isSuccess
 
+    fun revalidateFloodSnapshot(snapshotId: String): Boolean {
+        if (snapshotId.isBlank()) return false
+        return runCatching {
+            applicationContext.startService(
+                NavigationForegroundService.intent(
+                    applicationContext,
+                    NavigationForegroundService.ACTION_REVALIDATE_FLOOD_SNAPSHOT,
+                ).putExtra(
+                    NavigationForegroundService.EXTRA_FLOOD_SNAPSHOT_ID,
+                    snapshotId,
+                ),
+            )
+        }.isSuccess
+    }
+
     fun setSimulationPaused(paused: Boolean): Boolean = runCatching {
         applicationContext.startService(
             NavigationForegroundService.intent(

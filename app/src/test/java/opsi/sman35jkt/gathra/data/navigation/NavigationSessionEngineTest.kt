@@ -4,11 +4,13 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
@@ -20,9 +22,12 @@ import org.junit.Test
 import opsi.sman35jkt.gathra.core.location.NavigationLocationEvent
 import opsi.sman35jkt.gathra.core.location.NavigationLocationSource
 import opsi.sman35jkt.gathra.core.model.RouteOption
+import opsi.sman35jkt.gathra.core.model.FloodRiskLevel
+import opsi.sman35jkt.gathra.core.model.RouteFloodRisk
 import opsi.sman35jkt.gathra.core.model.RouteRequest
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import opsi.sman35jkt.gathra.domain.navigation.NavigationStatus
+import opsi.sman35jkt.gathra.domain.navigation.NavigationFloodRouteStatus
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -266,6 +271,244 @@ class NavigationSessionEngineTest {
         assertFalse(locationSource.activeCollectors.get() > 0)
     }
 
+    @Test
+    fun `new flood snapshot reroutes active navigation once and synchronizes route`() = runTest {
+        val originalRoute = routeWithSnapshot("snapshot-a")
+        val updatedRoute = routeWithSnapshot("snapshot-b", id = "flood-updated")
+        val sessionRepository = preparedSessionRepository(originalRoute)
+        val locationSource = RecordingLocationSource()
+        val requestCount = AtomicInteger()
+        var now = 0L
+        val engine = NavigationSessionEngine(
+            sessionRepository = sessionRepository,
+            routeRepository = StubRouteRepository {
+                requestCount.incrementAndGet()
+                listOf(updatedRoute)
+            },
+            locationSource = locationSource,
+            workDispatcher = StandardTestDispatcher(testScheduler),
+            elapsedRealtimeMillis = { now },
+            floodRerouteCooldownMillis = 0,
+        )
+        assertTrue(engine.start(backgroundScope))
+        runCurrent()
+        now = 1_000L
+        locationSource.emit(location(0.0, 0.0005, elapsedRealtimeMillis = now))
+        runCurrent()
+
+        engine.revalidateFloodSnapshot("snapshot-b")
+        engine.revalidateFloodSnapshot("snapshot-b")
+        runCurrent()
+
+        val session = requireNotNull(sessionRepository.session.value)
+        assertEquals(1, requestCount.get())
+        assertEquals(updatedRoute.id, session.route.id)
+        assertEquals(
+            NavigationFloodRouteStatus.SYNCHRONIZED,
+            session.floodRouteStatus,
+        )
+        assertEquals(null, session.floodTargetSnapshotId)
+        engine.stop()
+    }
+
+    @Test
+    fun `failed flood reroute retains guidance and exposes stale risk warning`() = runTest {
+        val originalRoute = routeWithSnapshot("snapshot-a")
+        val sessionRepository = preparedSessionRepository(originalRoute)
+        val locationSource = RecordingLocationSource()
+        var now = 0L
+        val engine = NavigationSessionEngine(
+            sessionRepository = sessionRepository,
+            routeRepository = StubRouteRepository {
+                error("backend unavailable")
+            },
+            locationSource = locationSource,
+            workDispatcher = StandardTestDispatcher(testScheduler),
+            elapsedRealtimeMillis = { now },
+            floodRerouteCooldownMillis = 0,
+        )
+        assertTrue(engine.start(backgroundScope))
+        runCurrent()
+        now = 1_000L
+        locationSource.emit(location(0.0, 0.0005, elapsedRealtimeMillis = now))
+        runCurrent()
+
+        engine.revalidateFloodSnapshot("snapshot-b")
+        runCurrent()
+
+        val stale = requireNotNull(sessionRepository.session.value)
+        assertEquals(originalRoute.id, stale.route.id)
+        assertEquals(NavigationFloodRouteStatus.STALE, stale.floodRouteStatus)
+        assertEquals("snapshot-b", stale.floodTargetSnapshotId)
+        assertEquals(NavigationStatus.NAVIGATING, stale.status)
+        engine.stop()
+    }
+
+    @Test
+    fun `older flood reroute response cannot overwrite a newer snapshot route`() = runTest {
+        val originalRoute = routeWithSnapshot("snapshot-a")
+        val newestRoute = routeWithSnapshot("snapshot-c", id = "newest-route")
+        val delayedResponse = CompletableDeferred<Unit>()
+        val firstRequestStarted = CompletableDeferred<Unit>()
+        val requestCount = AtomicInteger()
+        val sessionRepository = preparedSessionRepository(originalRoute)
+        val locationSource = RecordingLocationSource()
+        var now = 0L
+        val engine = NavigationSessionEngine(
+            sessionRepository = sessionRepository,
+            routeRepository = StubRouteRepository {
+                when (requestCount.incrementAndGet()) {
+                    1 -> {
+                        firstRequestStarted.complete(Unit)
+                        withContext(NonCancellable) {
+                            delayedResponse.await()
+                        }
+                        listOf(routeWithSnapshot("snapshot-b", id = "stale-route"))
+                    }
+                    else -> listOf(newestRoute)
+                }
+            },
+            locationSource = locationSource,
+            workDispatcher = StandardTestDispatcher(testScheduler),
+            elapsedRealtimeMillis = { now },
+            floodRerouteCooldownMillis = 0,
+        )
+        assertTrue(engine.start(backgroundScope))
+        runCurrent()
+        now = 1_000L
+        locationSource.emit(location(0.0, 0.0005, elapsedRealtimeMillis = now))
+        runCurrent()
+
+        engine.revalidateFloodSnapshot("snapshot-b")
+        runCurrent()
+        firstRequestStarted.await()
+        engine.revalidateFloodSnapshot("snapshot-c")
+        runCurrent()
+        assertEquals(newestRoute.id, sessionRepository.session.value?.route?.id)
+
+        delayedResponse.complete(Unit)
+        runCurrent()
+
+        assertEquals(2, requestCount.get())
+        assertEquals(newestRoute.id, sessionRepository.session.value?.route?.id)
+        assertEquals(
+            "snapshot-c",
+            sessionRepository.session.value?.route?.risk?.hazardSnapshotId,
+        )
+        engine.stop()
+    }
+
+    @Test
+    fun `flood reroute cooldown coalesces a newer snapshot until the window expires`() = runTest {
+        val originalRoute = routeWithSnapshot("snapshot-a")
+        val routeB = routeWithSnapshot("snapshot-b", id = "route-b")
+        val routeC = routeWithSnapshot("snapshot-c", id = "route-c")
+        val requestCount = AtomicInteger()
+        val sessionRepository = preparedSessionRepository(originalRoute)
+        val locationSource = RecordingLocationSource()
+        var now = 10_000L
+        val engine = NavigationSessionEngine(
+            sessionRepository = sessionRepository,
+            routeRepository = StubRouteRepository {
+                if (requestCount.incrementAndGet() == 1) {
+                    listOf(routeB)
+                } else {
+                    listOf(routeC)
+                }
+            },
+            locationSource = locationSource,
+            workDispatcher = StandardTestDispatcher(testScheduler),
+            elapsedRealtimeMillis = { now },
+            floodRerouteCooldownMillis = 5_000,
+        )
+        assertTrue(engine.start(backgroundScope))
+        runCurrent()
+        locationSource.emit(location(0.0, 0.0005, elapsedRealtimeMillis = now))
+        runCurrent()
+        engine.revalidateFloodSnapshot("snapshot-b")
+        runCurrent()
+        assertEquals(1, requestCount.get())
+
+        now = 11_000L
+        engine.revalidateFloodSnapshot("snapshot-c")
+        runCurrent()
+        assertEquals(1, requestCount.get())
+        advanceTimeBy(3_999L)
+        runCurrent()
+        assertEquals(1, requestCount.get())
+
+        now = 15_000L
+        advanceTimeBy(1L)
+        runCurrent()
+        assertEquals(2, requestCount.get())
+        assertEquals(routeC.id, sessionRepository.session.value?.route?.id)
+        engine.stop()
+    }
+
+    @Test
+    fun `newer snapshot invalidates an in flight reroute even during cooldown`() = runTest {
+        val originalRoute = routeWithSnapshot("snapshot-a")
+        val routeC = routeWithSnapshot("snapshot-c", id = "route-c")
+        val delayedResponse = CompletableDeferred<Unit>()
+        val firstRequestStarted = CompletableDeferred<Unit>()
+        val requestCount = AtomicInteger()
+        val sessionRepository = preparedSessionRepository(originalRoute)
+        val locationSource = RecordingLocationSource()
+        var now = 10_000L
+        val engine = NavigationSessionEngine(
+            sessionRepository = sessionRepository,
+            routeRepository = StubRouteRepository {
+                when (requestCount.incrementAndGet()) {
+                    1 -> {
+                        firstRequestStarted.complete(Unit)
+                        withContext(NonCancellable) {
+                            delayedResponse.await()
+                        }
+                        listOf(routeWithSnapshot("snapshot-b", id = "stale-route"))
+                    }
+                    else -> listOf(routeC)
+                }
+            },
+            locationSource = locationSource,
+            workDispatcher = StandardTestDispatcher(testScheduler),
+            elapsedRealtimeMillis = { now },
+            floodRerouteCooldownMillis = 5_000,
+        )
+        assertTrue(engine.start(backgroundScope))
+        runCurrent()
+        locationSource.emit(location(0.0, 0.0005, elapsedRealtimeMillis = now))
+        runCurrent()
+
+        engine.revalidateFloodSnapshot("snapshot-b")
+        runCurrent()
+        firstRequestStarted.await()
+
+        now = 11_000L
+        engine.revalidateFloodSnapshot("snapshot-c")
+        runCurrent()
+        delayedResponse.complete(Unit)
+        runCurrent()
+
+        assertEquals(1, requestCount.get())
+        assertEquals(originalRoute.id, sessionRepository.session.value?.route?.id)
+        assertEquals(
+            NavigationFloodRouteStatus.UPDATING,
+            sessionRepository.session.value?.floodRouteStatus,
+        )
+        assertEquals(
+            "snapshot-c",
+            sessionRepository.session.value?.floodTargetSnapshotId,
+        )
+
+        now = 15_000L
+        advanceTimeBy(5_000L)
+        runCurrent()
+
+        assertEquals(2, requestCount.get())
+        assertEquals(routeC.id, sessionRepository.session.value?.route?.id)
+        engine.stop()
+    }
+
     private fun preparedSessionRepository(
         route: RouteOption = testRoute(),
     ): NavigationSessionRepository = NavigationSessionRepository().also {
@@ -275,6 +518,24 @@ class NavigationSessionEngineTest {
             travelMode = TravelMode.CAR,
         )
     }
+
+    private fun routeWithSnapshot(
+        snapshotId: String,
+        id: String = "route-$snapshotId",
+    ): RouteOption = testRoute().copy(
+        id = id,
+        risk = RouteFloodRisk(
+            level = FloodRiskLevel.LOW,
+            score = 0.0,
+            intersectsBlockedArea = false,
+            affectedDistanceMeters = 0,
+            confidence = 0.9,
+            reasonCodes = listOf("NO_ACTIVE_FLOOD_INTERSECTION"),
+            evaluatedAtEpochMillis = 1_000L,
+            validUntilEpochMillis = 10_000L,
+            hazardSnapshotId = snapshotId,
+        ),
+    )
 
     private suspend fun kotlinx.coroutines.test.TestScope.assertLocationSourceRecovery(
         initialEvent: NavigationLocationEvent,

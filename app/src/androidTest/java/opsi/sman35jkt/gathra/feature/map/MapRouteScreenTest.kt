@@ -17,13 +17,20 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
+import opsi.sman35jkt.gathra.core.model.FloodHazardLevel
+import opsi.sman35jkt.gathra.core.model.FloodHazardPolygon
+import opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot
+import opsi.sman35jkt.gathra.core.model.FloodHazardSource
+import opsi.sman35jkt.gathra.core.model.FloodRiskLevel
 import opsi.sman35jkt.gathra.core.model.GeoPoint
+import opsi.sman35jkt.gathra.core.model.RouteFloodRisk
 import opsi.sman35jkt.gathra.core.model.RouteGeometry
 import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.RouteSelectionPoint
 import opsi.sman35jkt.gathra.core.model.RouteSummary
 import opsi.sman35jkt.gathra.core.model.SelectionPointSource
 import opsi.sman35jkt.gathra.core.model.TravelMode
+import opsi.sman35jkt.gathra.feature.map.components.FloodHazardDetailSheet
 import opsi.sman35jkt.gathra.ui.theme.GATHRATheme
 
 class MapRouteScreenTest {
@@ -120,13 +127,86 @@ class MapRouteScreenTest {
             .assertIsDisplayed()
     }
 
+    @Test
+    fun newerFloodSnapshotHidesOldLowBadgeWhileRouteUpdates() {
+        setScreen(
+            readyState().copy(
+                floodRouteSyncState = FloodRouteSyncState.UPDATING,
+                floodRouteTargetSnapshotId = "snapshot-b",
+            ),
+        )
+
+        composeRule.onNodeWithText(
+            "Kondisi banjir berubah. Rute sedang diperbarui.",
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText("Risiko belum dievaluasi")
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Risiko banjir rendah")
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun unknownRouteRiskIsNotRenderedAsLow() {
+        setScreen(readyState(riskLevel = FloodRiskLevel.UNKNOWN))
+
+        composeRule.onNodeWithText("Risiko belum diketahui")
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Risiko banjir rendah")
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun unknownHazardDetailUsesUnknownWording() {
+        composeRule.setContent {
+            GATHRATheme {
+                FloodHazardDetailSheet(
+                    hazard = FloodHazardPolygon(
+                        id = "unknown-hazard",
+                        level = FloodHazardLevel.UNKNOWN,
+                        rings = listOf(
+                            listOf(
+                                GeoPoint(-6.2, 106.8),
+                                GeoPoint(-6.2, 106.81),
+                                GeoPoint(-6.19, 106.81),
+                                GeoPoint(-6.2, 106.8),
+                            ),
+                        ),
+                        confidence = null,
+                        description = "Raw provider description",
+                        observedAtEpochMillis = 1_000L,
+                        validUntilEpochMillis = 2_000L,
+                        source = FloodHazardSource.UNKNOWN,
+                        sourceNodeIds = emptyList(),
+                    ),
+                    onDismiss = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Risiko belum diketahui")
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Tingkat risiko tidak diketahui.")
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Risiko banjir rendah")
+            .assertDoesNotExist()
+        composeRule.onNodeWithText("Raw provider description")
+            .assertDoesNotExist()
+    }
+
     private fun setReadyScreen(
+        onAction: (MapRouteAction) -> Unit = {},
+    ) {
+        setScreen(readyState(), onAction)
+    }
+
+    private fun setScreen(
+        state: MapRouteUiState,
         onAction: (MapRouteAction) -> Unit = {},
     ) {
         composeRule.setContent {
             GATHRATheme {
                 MapRouteScreen(
-                    state = readyState(),
+                    state = state,
                     snackbarHostState = SnackbarHostState(),
                     onAction = onAction,
                     mapContent = { _, _ -> Box(Modifier.fillMaxSize()) },
@@ -135,8 +215,11 @@ class MapRouteScreenTest {
         }
     }
 
-    private fun readyState(): MapRouteUiState {
+    private fun readyState(
+        riskLevel: FloodRiskLevel = FloodRiskLevel.LOW,
+    ): MapRouteUiState {
         val destination = JakartaDemoPoints.suggestedDestination
+        val risk = routeRisk(riskLevel)
         val route = RouteOption(
             id = "selected",
             geometry = RouteGeometry(
@@ -147,6 +230,7 @@ class MapRouteScreenTest {
                 etaMinutes = 12,
             ),
             isRecommended = true,
+            risk = risk,
         )
         val alternative = RouteOption(
             id = "alternative",
@@ -161,6 +245,7 @@ class MapRouteScreenTest {
                 distanceMeters = 5_800,
                 etaMinutes = 15,
             ),
+            risk = risk,
         )
         return MapRouteUiState(
             origin = RouteSelectionPoint(
@@ -175,6 +260,32 @@ class MapRouteScreenTest {
             routes = listOf(route, alternative),
             selectedRouteId = route.id,
             routeContentState = RouteContentState.READY,
+            floodHazardSnapshot = FloodHazardSnapshot(
+                snapshotId = TEST_SNAPSHOT_ID,
+                generatedAtEpochMillis = 1_000L,
+                validUntilEpochMillis = 10_000L,
+                source = FloodHazardSource.SIMULATED,
+                hazards = emptyList(),
+            ),
+            floodDataStatus = FloodDataStatus.FRESH,
+            floodRouteSyncState = FloodRouteSyncState.SYNCHRONIZED,
         )
+    }
+
+    private fun routeRisk(level: FloodRiskLevel): RouteFloodRisk =
+        RouteFloodRisk(
+            level = level,
+            score = if (level == FloodRiskLevel.LOW) 0.0 else 0.5,
+            intersectsBlockedArea = false,
+            affectedDistanceMeters = 0,
+            confidence = 0.9,
+            reasonCodes = listOf("TEST_FIXTURE"),
+            evaluatedAtEpochMillis = 1_000L,
+            validUntilEpochMillis = 10_000L,
+            hazardSnapshotId = TEST_SNAPSHOT_ID,
+        )
+
+    private companion object {
+        const val TEST_SNAPSHOT_ID = "snapshot-a"
     }
 }

@@ -87,6 +87,11 @@ class NavigationViewModel(
                     _effects.tryEmit(NavigationEffect.SERVICE_ACTION_FAILED)
                 }
             }
+            is NavigationAction.FloodSnapshotChanged -> {
+                if (!serviceController.revalidateFloodSnapshot(action.snapshotId)) {
+                    _effects.tryEmit(NavigationEffect.SERVICE_ACTION_FAILED)
+                }
+            }
             NavigationAction.ToggleSimulationPause -> {
                 val paused = !_uiState.value.simulationPaused
                 if (serviceController.setSimulationPaused(paused)) {

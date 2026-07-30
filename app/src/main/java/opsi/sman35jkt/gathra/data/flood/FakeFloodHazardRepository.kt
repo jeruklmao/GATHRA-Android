@@ -10,7 +10,7 @@ import opsi.sman35jkt.gathra.domain.flood.FloodHazardRepository
 
 class FakeFloodHazardRepository(
     var simulatedHazards: List<FloodHazardPolygon> = defaultFakeHazards(),
-    var snapshotId: String = "fake_snapshot_v1_2",
+    var snapshotId: String = DEMO_FLOOD_SNAPSHOT_ID,
 ) : FloodHazardRepository {
 
     override suspend fun getActiveHazards(bounds: GeoBounds?): FloodHazardSnapshot {
@@ -34,6 +34,8 @@ class FakeFloodHazardRepository(
     }
 
     companion object {
+        const val DEMO_FLOOD_SNAPSHOT_ID = "demo-snapshot"
+
         fun defaultFakeHazards(): List<FloodHazardPolygon> {
             val now = System.currentTimeMillis()
             val validUntil = now + 86400000L // 24 hours

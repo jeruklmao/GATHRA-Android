@@ -83,6 +83,7 @@ import opsi.sman35jkt.gathra.core.model.RouteStep
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import opsi.sman35jkt.gathra.core.navigation.navigationInstruction
 import opsi.sman35jkt.gathra.domain.navigation.NavigationSession
+import opsi.sman35jkt.gathra.domain.navigation.NavigationFloodRouteStatus
 import opsi.sman35jkt.gathra.domain.navigation.NavigationStatus
 
 @Composable
@@ -475,6 +476,10 @@ private fun NavigationBottomPanel(
                 return@Column
             }
             NavigationMetrics(session, compact)
+            FloodNavigationStatus(
+                session = session,
+                onRetry = { onAction(NavigationAction.RetryReroute) },
+            )
             if (session.status == NavigationStatus.RECALCULATING) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -505,6 +510,48 @@ private fun NavigationBottomPanel(
                 stackVertically = largeText,
                 onAction = onAction,
             )
+        }
+    }
+}
+
+@Composable
+private fun FloodNavigationStatus(
+    session: NavigationSession,
+    onRetry: () -> Unit,
+) {
+    val message = when (session.floodRouteStatus) {
+        NavigationFloodRouteStatus.UPDATING ->
+            R.string.navigation_flood_route_updating
+        NavigationFloodRouteStatus.STALE ->
+            R.string.navigation_flood_route_stale
+        NavigationFloodRouteStatus.NOT_EVALUATED ->
+            R.string.navigation_flood_route_not_evaluated
+        NavigationFloodRouteStatus.SYNCHRONIZED -> return
+    }
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { liveRegion = LiveRegionMode.Assertive },
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.WarningAmber, contentDescription = null)
+            Text(
+                text = stringResource(message),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
+            )
+            if (session.floodRouteStatus == NavigationFloodRouteStatus.STALE) {
+                OutlinedButton(onClick = onRetry) {
+                    Text(stringResource(R.string.retry))
+                }
+            }
         }
     }
 }

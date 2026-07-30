@@ -18,8 +18,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.AltRoute
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Route
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -47,6 +49,8 @@ import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import opsi.sman35jkt.gathra.feature.map.MapRouteError
 import opsi.sman35jkt.gathra.feature.map.MapRouteTestTags
+import opsi.sman35jkt.gathra.feature.map.FloodDataStatus
+import opsi.sman35jkt.gathra.feature.map.FloodRouteSyncState
 
 @Composable
 fun RouteBottomSheetContent(
@@ -56,10 +60,17 @@ fun RouteBottomSheetContent(
     routeError: MapRouteError?,
     routes: List<RouteOption>,
     selectedRouteId: String?,
+    floodDataStatus: FloodDataStatus = FloodDataStatus.UNAVAILABLE,
+    floodRouteSyncState: FloodRouteSyncState = FloodRouteSyncState.NOT_EVALUATED,
+    isLoadingFloodHazards: Boolean = false,
+    riskIsCurrent: Boolean = false,
+    canStartNavigation: Boolean = true,
     expanded: Boolean,
     onTravelModeSelected: (TravelMode) -> Unit,
     onRouteSelected: (String) -> Unit,
     onRetry: () -> Unit,
+    onFloodRefresh: () -> Unit = {},
+    onFloodRouteRetry: () -> Unit = {},
     onPreview: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -111,6 +122,15 @@ fun RouteBottomSheetContent(
             onModeSelected = onTravelModeSelected,
         )
 
+        FloodStatusContent(
+            dataStatus = floodDataStatus,
+            routeSyncState = floodRouteSyncState,
+            hasRoute = selectedRoute != null,
+            isLoadingFloodHazards = isLoadingFloodHazards,
+            onFloodRefresh = onFloodRefresh,
+            onFloodRouteRetry = onFloodRouteRetry,
+        )
+
         when {
             isLoading -> LoadingRouteContent()
             routeError != null -> ErrorRouteContent(
@@ -122,6 +142,7 @@ fun RouteBottomSheetContent(
                 routes = routes,
                 selectedRouteId = selectedRouteId,
                 expanded = expanded,
+                riskIsCurrent = riskIsCurrent,
                 onRouteSelected = onRouteSelected,
             )
             else -> EmptyRouteContent(destinationSelected = destinationSelected)
@@ -129,7 +150,10 @@ fun RouteBottomSheetContent(
 
         Button(
             onClick = onPreview,
-            enabled = selectedRoute != null && !isLoading && routeError == null,
+            enabled = selectedRoute != null &&
+                !isLoading &&
+                routeError == null &&
+                canStartNavigation,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(if (expanded) 52.dp else 48.dp)
@@ -213,6 +237,12 @@ private fun ErrorRouteContent(
         MapRouteError.ROUTE_OFFLINE -> R.string.route_offline_title
         MapRouteError.ROUTE_TIMEOUT -> R.string.route_timeout_title
         MapRouteError.ROUTE_NOT_FOUND -> R.string.route_not_found_title
+        MapRouteError.NO_ROUTE_DUE_TO_FLOOD ->
+            R.string.route_blocked_by_flood_title
+        MapRouteError.ORIGIN_IN_BLOCKED_AREA ->
+            R.string.route_origin_blocked_title
+        MapRouteError.DESTINATION_IN_BLOCKED_AREA ->
+            R.string.route_destination_blocked_title
         MapRouteError.ROUTE_INVALID_RESPONSE -> R.string.route_invalid_response_title
         MapRouteError.ROUTE_SERVICE_UNAVAILABLE -> R.string.route_service_unavailable_title
         else -> R.string.route_error_title
@@ -221,6 +251,12 @@ private fun ErrorRouteContent(
         MapRouteError.ROUTE_OFFLINE -> R.string.route_offline_body
         MapRouteError.ROUTE_TIMEOUT -> R.string.route_timeout_body
         MapRouteError.ROUTE_NOT_FOUND -> R.string.route_not_found_body
+        MapRouteError.NO_ROUTE_DUE_TO_FLOOD ->
+            R.string.route_blocked_by_flood_body
+        MapRouteError.ORIGIN_IN_BLOCKED_AREA ->
+            R.string.route_origin_blocked_body
+        MapRouteError.DESTINATION_IN_BLOCKED_AREA ->
+            R.string.route_destination_blocked_body
         MapRouteError.ROUTE_INVALID_RESPONSE -> R.string.route_invalid_response_body
         MapRouteError.ROUTE_SERVICE_UNAVAILABLE -> R.string.route_service_unavailable_body
         else -> R.string.route_error_body
@@ -261,6 +297,7 @@ private fun ReadyRouteContent(
     routes: List<RouteOption>,
     selectedRouteId: String?,
     expanded: Boolean,
+    riskIsCurrent: Boolean,
     onRouteSelected: (String) -> Unit,
 ) {
     Column(
@@ -292,17 +329,29 @@ private fun ReadyRouteContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.weight(1f))
-            FloodRiskBadge(risk = selectedRoute.risk)
+            FloodRiskBadge(
+                level = if (riskIsCurrent) {
+                    selectedRoute.risk?.level
+                } else {
+                    FloodRiskLevel.NOT_EVALUATED
+                },
+            )
         }
-        val floodExplanationRes = when (selectedRoute.risk?.level) {
+        val floodExplanationRes = if (!riskIsCurrent) {
+            R.string.flood_risk_explanation_not_evaluated
+        } else {
+            when (selectedRoute.risk?.level) {
             FloodRiskLevel.LOW -> R.string.flood_risk_explanation_low
             FloodRiskLevel.MEDIUM -> R.string.flood_risk_explanation_medium
             FloodRiskLevel.HIGH -> R.string.flood_risk_explanation_high
             FloodRiskLevel.BLOCKED -> R.string.flood_risk_explanation_blocked
+            FloodRiskLevel.UNKNOWN -> R.string.flood_risk_explanation_unknown
+            FloodRiskLevel.NOT_EVALUATED -> R.string.flood_risk_explanation_not_evaluated
             else -> if (selectedRoute.isRecommended) {
                 R.string.fastest_route_explanation
             } else {
                 R.string.selected_route_explanation
+            }
             }
         }
         Text(
@@ -332,6 +381,7 @@ private fun ReadyRouteContent(
                             },
                         ),
                         onClick = { onRouteSelected(route.id) },
+                        riskIsCurrent = riskIsCurrent,
                     )
                 }
             }
@@ -351,6 +401,7 @@ private fun RouteChoiceRow(
     selected: Boolean,
     label: String,
     onClick: () -> Unit,
+    riskIsCurrent: Boolean,
 ) {
     val accessibility = stringResource(
         R.string.route_option_accessibility,
@@ -396,7 +447,13 @@ private fun RouteChoiceRow(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                FloodRiskBadge(risk = route.risk)
+                FloodRiskBadge(
+                    level = if (riskIsCurrent) {
+                        route.risk?.level
+                    } else {
+                        FloodRiskLevel.NOT_EVALUATED
+                    },
+                )
             }
             Text(
                 text = stringResource(
@@ -464,19 +521,119 @@ internal fun FloodRiskBadge(
             MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    val statusIcon = when (level) {
+        FloodRiskLevel.UNKNOWN -> Icons.Rounded.WarningAmber
+        FloodRiskLevel.NOT_EVALUATED, null -> Icons.AutoMirrored.Rounded.HelpOutline
+        else -> null
+    }
+    val statusDescription = stringResource(
+        when (level) {
+            FloodRiskLevel.UNKNOWN -> R.string.flood_risk_unknown_accessibility
+            FloodRiskLevel.NOT_EVALUATED, null ->
+                R.string.flood_risk_not_evaluated_accessibility
+            else -> labelRes
+        },
+    )
 
     Surface(
-        modifier = modifier,
+        modifier = modifier.semantics {
+            contentDescription = statusDescription
+        },
         shape = RoundedCornerShape(8.dp),
         color = containerColor,
         contentColor = contentColor,
     ) {
-        Text(
-            text = stringResource(labelRes),
+        Row(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-        )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            statusIcon?.let {
+                Icon(
+                    imageVector = it,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+            Text(
+                text = stringResource(labelRes),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+            )
+        }
     }
 }
 
+@Composable
+private fun FloodStatusContent(
+    dataStatus: FloodDataStatus,
+    routeSyncState: FloodRouteSyncState,
+    hasRoute: Boolean,
+    isLoadingFloodHazards: Boolean,
+    onFloodRefresh: () -> Unit,
+    onFloodRouteRetry: () -> Unit,
+) {
+    if (
+        !hasRoute &&
+        isLoadingFloodHazards &&
+        dataStatus == FloodDataStatus.UNAVAILABLE
+    ) {
+        return
+    }
+    val content: Triple<Int, Boolean, (() -> Unit)?> = when {
+        routeSyncState in setOf(
+            FloodRouteSyncState.OUTDATED_BY_FLOOD_UPDATE,
+            FloodRouteSyncState.UPDATING,
+        ) -> Triple(
+            R.string.flood_route_updating,
+            true,
+            null,
+        )
+        routeSyncState == FloodRouteSyncState.STALE -> Triple(
+            R.string.flood_route_update_failed,
+            false,
+            onFloodRouteRetry,
+        )
+        dataStatus == FloodDataStatus.STALE -> Triple(
+            R.string.flood_data_stale,
+            false,
+            onFloodRefresh,
+        )
+        dataStatus == FloodDataStatus.UNAVAILABLE -> Triple(
+            R.string.flood_data_unavailable,
+            false,
+            onFloodRefresh,
+        )
+        else -> return
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { liveRegion = LiveRegionMode.Assertive },
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (content.second) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+            )
+        } else {
+            Icon(
+                Icons.Rounded.WarningAmber,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+        Text(
+            text = stringResource(content.first),
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f),
+        )
+        content.third?.let { retry ->
+            OutlinedButton(onClick = retry) {
+                Text(stringResource(R.string.retry))
+            }
+        }
+    }
+}

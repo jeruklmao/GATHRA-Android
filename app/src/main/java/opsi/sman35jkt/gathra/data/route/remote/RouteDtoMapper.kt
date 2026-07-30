@@ -1,6 +1,7 @@
 package opsi.sman35jkt.gathra.data.route.remote
 
 import kotlin.math.ceil
+import opsi.sman35jkt.gathra.data.common.parseStrictIsoTimestamp
 import opsi.sman35jkt.gathra.core.model.FloodRiskLevel
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.ManeuverModifier
@@ -43,6 +44,16 @@ internal object RouteDtoMapper {
         )
         requireValid(
             response.metadata.returnedAlternatives == response.routes.size - 1,
+        )
+        val floodMetadata = response.metadata.flood
+        requireValid(floodMetadata != null)
+        requireValid(isValidIdentifier(requireNotNull(floodMetadata).snapshotId))
+        requireValid(floodMetadata.activeHazardCount >= 0)
+        requireValid(floodMetadata.source.isNotBlank())
+        val metadataEvaluatedAt = parseRequiredTimestamp(floodMetadata.evaluatedAt)
+        val metadataValidUntil = parseOptionalTimestamp(floodMetadata.validUntil)
+        requireValid(
+            metadataValidUntil == null || metadataValidUntil > metadataEvaluatedAt,
         )
         requireValid(response.routes.first().isRecommended)
         requireValid(response.routes.count { it.isRecommended } == 1)
@@ -128,11 +139,21 @@ internal object RouteDtoMapper {
             requireValid(steps.last().geometryEndIndex == points.lastIndex)
 
             val riskDomain = route.risk?.let { riskDto ->
-                val level = FloodRiskLevel.entries.firstOrNull { it.name == riskDto.level }
-                    ?: FloodRiskLevel.UNKNOWN
+                val level = mapRemoteFloodRiskLevel(riskDto.level)
                 requireValid(riskDto.score in 0.0..1.0)
                 requireValid(riskDto.affectedDistanceMeters >= 0)
                 requireValid(riskDto.confidence == null || riskDto.confidence in 0.0..1.0)
+                requireValid(isValidIdentifier(riskDto.hazardSnapshotId))
+                requireValid(riskDto.hazardSnapshotId == floodMetadata.snapshotId)
+                requireValid(
+                    riskDto.reasonCodes.size <= MAX_REASON_CODES &&
+                        riskDto.reasonCodes.all {
+                            it.isNotBlank() && it.length <= MAX_REASON_CODE_LENGTH
+                        },
+                )
+                val evaluatedAt = parseRequiredTimestamp(riskDto.evaluatedAt)
+                val validUntil = parseOptionalTimestamp(riskDto.validUntil)
+                requireValid(validUntil == null || validUntil > evaluatedAt)
 
                 RouteFloodRisk(
                     level = level,
@@ -141,11 +162,15 @@ internal object RouteDtoMapper {
                     affectedDistanceMeters = riskDto.affectedDistanceMeters,
                     confidence = riskDto.confidence,
                     reasonCodes = riskDto.reasonCodes,
-                    evaluatedAtEpochMillis = parseIsoToEpochMillis(riskDto.evaluatedAt),
-                    validUntilEpochMillis = parseIsoToEpochMillis(riskDto.validUntil),
+                    evaluatedAtEpochMillis = evaluatedAt,
+                    validUntilEpochMillis = validUntil,
                     hazardSnapshotId = riskDto.hazardSnapshotId,
                 )
             }
+            requireValid(riskDomain != null)
+            requireValid(riskDomain?.intersectsBlockedArea == false)
+            requireValid(riskDomain?.level != FloodRiskLevel.BLOCKED)
+            requireValid(!route.isRecommended || riskDomain?.intersectsBlockedArea == false)
 
             RouteOption(
                 id = route.id,
@@ -164,20 +189,32 @@ internal object RouteDtoMapper {
         }
     }
 
-    private fun parseIsoToEpochMillis(isoString: String?): Long? {
-        if (isoString.isNullOrBlank()) return null
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            runCatching { java.time.Instant.parse(isoString).toEpochMilli() }.getOrNull()
-        } else {
-            null
-        }
+    private fun parseRequiredTimestamp(value: String?): Long =
+        parseStrictIsoTimestamp(value) ?: throw InvalidRouteResponseException()
+
+    private fun parseOptionalTimestamp(value: String?): Long? {
+        if (value == null) return null
+        return parseStrictIsoTimestamp(value).also { requireValid(it != null) }
     }
 
-    private fun String?.isNullOrBlank(): Boolean = this == null || this.isBlank()
+    private fun isValidIdentifier(value: String?): Boolean =
+        value != null &&
+            value.isNotBlank() &&
+            value.length <= MAX_IDENTIFIER_LENGTH &&
+            value.all { it.isLetterOrDigit() || it in IDENTIFIER_PUNCTUATION }
 
     private inline fun <reified T : Enum<T>> enumValueOrInvalid(value: String): T =
         enumValues<T>().firstOrNull { it.name == value }
             ?: throw InvalidRouteResponseException()
+
+    private fun mapRemoteFloodRiskLevel(value: String): FloodRiskLevel = when (value) {
+        "LOW" -> FloodRiskLevel.LOW
+        "MEDIUM" -> FloodRiskLevel.MEDIUM
+        "HIGH" -> FloodRiskLevel.HIGH
+        "BLOCKED" -> FloodRiskLevel.BLOCKED
+        "UNKNOWN" -> FloodRiskLevel.UNKNOWN
+        else -> throw InvalidRouteResponseException()
+    }
 
     private fun requireValid(condition: Boolean) {
         if (!condition) {
@@ -189,6 +226,10 @@ internal object RouteDtoMapper {
     private const val MAX_ROUTE_STEPS = 10_000
     private const val MAX_INSTRUCTION_LENGTH = 500
     private const val MAX_STREET_NAME_LENGTH = 200
+    private const val MAX_REASON_CODES = 32
+    private const val MAX_REASON_CODE_LENGTH = 100
+    private const val MAX_IDENTIFIER_LENGTH = 128
+    private const val IDENTIFIER_PUNCTUATION = "._:-"
 }
 
 internal class InvalidRouteResponseException :

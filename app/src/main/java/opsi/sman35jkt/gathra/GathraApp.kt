@@ -4,10 +4,14 @@ import android.app.Application
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import opsi.sman35jkt.gathra.domain.navigation.NavigationStatus
 import opsi.sman35jkt.gathra.feature.map.MapRouteRoute
 import opsi.sman35jkt.gathra.feature.map.MapRouteViewModel
@@ -64,6 +68,27 @@ fun GathraApp(
     )
     val navigationSession =
         appContainer.navigationSessionRepository.session.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner, mapViewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START ->
+                    mapViewModel.onAction(MapRouteAction.ScreenStarted)
+                Lifecycle.Event.ON_STOP ->
+                    mapViewModel.onAction(MapRouteAction.ScreenStopped)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            mapViewModel.onAction(MapRouteAction.ScreenStarted)
+        }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapViewModel.onAction(MapRouteAction.ScreenStopped)
+        }
+    }
     val navigationIsVisible = navigationSession.value?.status?.let { status ->
         status != NavigationStatus.IDLE && status != NavigationStatus.STOPPED
     } == true
