@@ -58,7 +58,7 @@ internal object GeocodingDtoMapper {
 
     /**
      * A reverse result supplies display metadata only. The user's exact map point
-     * remains authoritative even if Pelias returns a nearby feature centroid.
+     * remains authoritative even if the geocoder returns a nearby feature centroid.
      */
     fun toReverseSelectedPlace(
         response: PlaceDetailsResponseDto,
