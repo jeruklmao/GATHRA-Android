@@ -1,26 +1,36 @@
+# Android Studio and local machine state
+/.idea/
 *.iml
-.gradle
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
 
-# NestJS backend
+# Gradle, Kotlin, and Android build outputs
+.gradle/
+/.kotlin/
+build/
+*.apk
+*.aab
+/captures/
+/test-screenshots/
+/verification-artifacts/
+/docs/screenshots/
+.externalNativeBuild/
+.cxx/
+
+# Local environment and backend outputs
+.env
+.env.*
+!.env.example
+!**/.env.example
 /backend/node_modules/
 /backend/dist/
 /backend/coverage/
-/backend/.env
 /backend/*.log
 
-# Local routing data and generated GraphHopper graph caches
+# Local routing/geocoding inputs and generated provider data
 /backend/data/
 /backend/routing-data/
+
+# Temporary deployment evidence and archives belong outside source control
+/DEPLOYMENT-REPORT.md
+/deployment-artifacts/
