@@ -158,18 +158,6 @@ class NavigationSessionEngine(
         rerouteTracker.invalidate()
     }
 
-    fun setSimulationPaused(paused: Boolean) {
-        locationSource.setSimulationPaused(paused)
-    }
-
-    fun setSimulationSpeed(multiplier: Double) {
-        locationSource.setSimulationSpeed(multiplier)
-    }
-
-    fun simulateOffRoute() {
-        locationSource.simulateOffRoute()
-    }
-
     private fun startLocationCollection(route: RouteOption) {
         val scope = serviceScope ?: return
         locationJob?.cancel()

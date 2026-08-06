@@ -17,11 +17,8 @@ import opsi.sman35jkt.gathra.service.navigation.NavigationServiceController
 class NavigationViewModel(
     private val repository: NavigationRepository,
     private val serviceController: NavigationServiceController,
-    simulationEnabled: Boolean,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(
-        NavigationUiState(simulationEnabled = simulationEnabled),
-    )
+    private val _uiState = MutableStateFlow(NavigationUiState())
     val uiState: StateFlow<NavigationUiState> = _uiState.asStateFlow()
 
     private val _effects = MutableSharedFlow<NavigationEffect>(
@@ -89,26 +86,6 @@ class NavigationViewModel(
             }
             is NavigationAction.FloodSnapshotChanged -> {
                 if (!serviceController.revalidateFloodSnapshot(action.snapshotId)) {
-                    _effects.tryEmit(NavigationEffect.SERVICE_ACTION_FAILED)
-                }
-            }
-            NavigationAction.ToggleSimulationPause -> {
-                val paused = !_uiState.value.simulationPaused
-                if (serviceController.setSimulationPaused(paused)) {
-                    _uiState.update { it.copy(simulationPaused = paused) }
-                } else {
-                    _effects.tryEmit(NavigationEffect.SERVICE_ACTION_FAILED)
-                }
-            }
-            is NavigationAction.SimulationSpeedSelected -> {
-                if (serviceController.setSimulationSpeed(action.multiplier)) {
-                    _uiState.update { it.copy(simulationSpeed = action.multiplier) }
-                } else {
-                    _effects.tryEmit(NavigationEffect.SERVICE_ACTION_FAILED)
-                }
-            }
-            NavigationAction.SimulateOffRoute -> {
-                if (!serviceController.simulateOffRoute()) {
                     _effects.tryEmit(NavigationEffect.SERVICE_ACTION_FAILED)
                 }
             }

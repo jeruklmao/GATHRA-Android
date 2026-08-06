@@ -9,9 +9,6 @@ data class NavigationUiState(
     val session: NavigationSession? = null,
     val cameraMode: NavigationCameraMode = NavigationCameraMode.FOLLOW,
     val stopConfirmationVisible: Boolean = false,
-    val simulationEnabled: Boolean = false,
-    val simulationPaused: Boolean = false,
-    val simulationSpeed: Double = 2.0,
 ) {
     val nextStep: RouteStep?
         get() {

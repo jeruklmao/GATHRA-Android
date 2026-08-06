@@ -43,4 +43,4 @@ jobs:
           ./gradlew testDebugUnitTest
           ./gradlew lintDebug
           ./gradlew assembleDebug
-          ./gradlew assembleDemo
+          ./gradlew assembleRelease

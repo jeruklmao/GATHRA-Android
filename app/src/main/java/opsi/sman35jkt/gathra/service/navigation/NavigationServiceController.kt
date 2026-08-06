@@ -59,28 +59,6 @@ class NavigationServiceController(context: Context) {
         }.isSuccess
     }
 
-    fun setSimulationPaused(paused: Boolean): Boolean = runCatching {
-        applicationContext.startService(
-            NavigationForegroundService.intent(
-                applicationContext,
-                NavigationForegroundService.ACTION_SET_SIMULATION_PAUSED,
-            ).putExtra(NavigationForegroundService.EXTRA_PAUSED, paused),
-        )
-    }.isSuccess
-
-    fun setSimulationSpeed(multiplier: Double): Boolean = runCatching {
-        applicationContext.startService(
-            NavigationForegroundService.intent(
-                applicationContext,
-                NavigationForegroundService.ACTION_SET_SIMULATION_SPEED,
-            ).putExtra(NavigationForegroundService.EXTRA_SPEED_MULTIPLIER, multiplier),
-        )
-    }.isSuccess
-
-    fun simulateOffRoute(): Boolean = runCatching {
-        sendAction(NavigationForegroundService.ACTION_SIMULATE_OFF_ROUTE)
-    }.isSuccess
-
     private fun sendAction(action: String) {
         applicationContext.startService(
             NavigationForegroundService.intent(applicationContext, action),

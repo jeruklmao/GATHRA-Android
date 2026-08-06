@@ -11,7 +11,4 @@ sealed interface NavigationAction {
     data object FinishClicked : NavigationAction
     data object RetryReroute : NavigationAction
     data class FloodSnapshotChanged(val snapshotId: String) : NavigationAction
-    data object ToggleSimulationPause : NavigationAction
-    data class SimulationSpeedSelected(val multiplier: Double) : NavigationAction
-    data object SimulateOffRoute : NavigationAction
 }
