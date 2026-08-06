@@ -214,6 +214,12 @@ With Android pointed at local NestJS, confirm:
 
 Flood data is simulated, in-memory, and not evidence that a route is safe.
 
+For an already deployed backend, use only the authenticated administration
+surface and its external mode-600 token file. It changes the same in-process
+snapshot consumed by Android and route preview, unlike a second NestJS
+simulation container. Never enable the unauthenticated `/dev` surface on the
+public deployment. Restarting the backend clears the simulated state.
+
 ## Android quality commands
 
 ```bash
