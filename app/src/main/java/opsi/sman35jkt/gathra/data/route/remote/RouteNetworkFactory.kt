@@ -19,7 +19,7 @@ object RouteNetworkFactory {
 
     fun createRepository(baseUrl: String): RouteRepository {
         require(baseUrl.endsWith('/')) {
-            "ROUTE_API_BASE_URL must end with '/'."
+            "API_BASE_URL must end with '/'."
         }
         val client = OkHttpClient.Builder()
             .retryOnConnectionFailure(false)

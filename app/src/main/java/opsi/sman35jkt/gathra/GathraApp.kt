@@ -56,7 +56,6 @@ fun GathraApp(
         NavigationViewModelFactory(
             repository = appContainer.navigationSessionRepository,
             serviceController = appContainer.navigationServiceController,
-            simulationEnabled = BuildConfig.ENABLE_NAVIGATION_SIMULATION,
         )
     }
     val mapViewModel: MapRouteViewModel = viewModel(factory = mapFactory)

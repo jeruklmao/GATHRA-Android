@@ -20,7 +20,7 @@ enum class FakeGeocodingFailureMode {
 }
 
 /**
- * Deterministic, network-free place data for demo builds and tests.
+ * Deterministic, network-free place data for automated tests.
  */
 class FakeGeocodingRepository(
     private val loadingDelayMillis: Long = DEFAULT_LOADING_DELAY_MILLIS,

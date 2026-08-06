@@ -149,11 +149,6 @@
     <string name="navigation_continue">Lanjutkan navigasi</string>
     <string name="navigation_mode_car">Mobil</string>
     <string name="navigation_mode_motorcycle">Motor</string>
-    <string name="navigation_simulation_badge">SIMULASI</string>
-    <string name="navigation_simulation_pause">Jeda</string>
-    <string name="navigation_simulation_resume">Lanjutkan</string>
-    <string name="navigation_simulation_speed_short">%1$d×</string>
-    <string name="navigation_simulation_off_route">Simulasikan keluar rute</string>
     <string name="navigation_tts_unavailable">Suara bahasa Indonesia tidak tersedia. Navigasi tetap berjalan tanpa suara.</string>
     <string name="navigation_service_start_failed">Navigasi tidak dapat dimulai. Periksa izin lokasi lalu coba lagi.</string>
     <string name="navigation_notification_channel">Navigasi aktif</string>

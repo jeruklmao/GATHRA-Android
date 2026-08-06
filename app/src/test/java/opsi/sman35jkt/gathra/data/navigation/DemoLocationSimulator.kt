@@ -4,7 +4,7 @@ import opsi.sman35jkt.gathra.core.model.RouteGeometry
 import opsi.sman35jkt.gathra.domain.navigation.NavigationLocationSample
 
 /**
- * Deterministic, clock-free navigation input for demo builds and tests.
+ * Deterministic, clock-free navigation input for automated tests.
  *
  * The caller controls emission cadence. Each [nextLocation] advances the
  * simulator's internal timestamp by [intervalMillis].

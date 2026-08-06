@@ -8,7 +8,6 @@ import opsi.sman35jkt.gathra.service.navigation.NavigationServiceController
 class NavigationViewModelFactory(
     private val repository: NavigationRepository,
     private val serviceController: NavigationServiceController,
-    private val simulationEnabled: Boolean,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         require(modelClass.isAssignableFrom(NavigationViewModel::class.java))
@@ -16,7 +15,6 @@ class NavigationViewModelFactory(
         return NavigationViewModel(
             repository = repository,
             serviceController = serviceController,
-            simulationEnabled = simulationEnabled,
         ) as T
     }
 }

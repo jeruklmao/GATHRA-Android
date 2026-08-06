@@ -1,3 +1,6 @@
+import java.net.URI
+import java.net.URISyntaxException
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -7,12 +10,67 @@ plugins {
 fun String.asBuildConfigString(): String =
     "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
-val developmentRouteApiBaseUrl = providers
-    .gradleProperty("GATHRA_ROUTE_API_BASE_URL")
-    .orElse("http://10.0.2.2:3000/")
-val releaseRouteApiBaseUrl = providers
-    .gradleProperty("GATHRA_RELEASE_ROUTE_API_BASE_URL")
-    .orElse("https://routes.invalid/")
+fun validatedApiBaseUrl(
+    propertyName: String,
+    rawValue: String,
+    requireHttps: Boolean,
+): String {
+    val value = rawValue.trim()
+    if (value.isEmpty()) {
+        throw GradleException("$propertyName must not be empty.")
+    }
+    val uri = try {
+        URI(value)
+    } catch (exception: URISyntaxException) {
+        throw GradleException("$propertyName must be a valid URI.", exception)
+    }
+    val scheme = uri.scheme?.lowercase()
+    if (
+        !uri.isAbsolute ||
+        scheme !in setOf("http", "https") ||
+        uri.host.isNullOrBlank()
+    ) {
+        throw GradleException(
+            "$propertyName must be an absolute HTTP(S) URL with a host.",
+        )
+    }
+    if (!value.endsWith('/')) {
+        throw GradleException("$propertyName must end with '/'.")
+    }
+    if (uri.rawUserInfo != null || uri.rawQuery != null || uri.rawFragment != null) {
+        throw GradleException(
+            "$propertyName must not contain credentials, a query, or a fragment.",
+        )
+    }
+    if (requireHttps && scheme != "https") {
+        throw GradleException("$propertyName must use HTTPS for release builds.")
+    }
+    return value
+}
+
+val defaultApiBaseUrl = "https://api.gathra.my.id/"
+val developmentApiBaseUrl = providers
+    .gradleProperty("GATHRA_API_BASE_URL")
+    .orElse(providers.gradleProperty("GATHRA_ROUTE_API_BASE_URL"))
+    .orElse(defaultApiBaseUrl)
+    .map { value ->
+        validatedApiBaseUrl(
+            propertyName = "GATHRA_API_BASE_URL",
+            rawValue = value,
+            requireHttps = false,
+        )
+    }
+val releaseApiBaseUrl = providers
+    .gradleProperty("GATHRA_RELEASE_API_BASE_URL")
+    .orElse(providers.gradleProperty("GATHRA_RELEASE_ROUTE_API_BASE_URL"))
+    .orElse(defaultApiBaseUrl)
+    .map { value ->
+        validatedApiBaseUrl(
+            propertyName = "GATHRA_RELEASE_API_BASE_URL",
+            rawValue = value,
+            requireHttps = true,
+        )
+    }
 
 android {
     namespace = "opsi.sman35jkt.gathra"
@@ -35,30 +93,14 @@ android {
 
     buildTypes {
         debug {
+            val apiBaseUrl = developmentApiBaseUrl.get()
             buildConfigField(
                 "String",
-                "ROUTE_API_BASE_URL",
-                developmentRouteApiBaseUrl.get().asBuildConfigString(),
+                "API_BASE_URL",
+                apiBaseUrl.asBuildConfigString(),
             )
-            buildConfigField("boolean", "USE_FAKE_ROUTES", "false")
-            buildConfigField("boolean", "USE_FAKE_GEOCODING", "false")
-            buildConfigField("boolean", "ENABLE_NAVIGATION_SIMULATION", "false")
-            manifestPlaceholders["usesCleartextTraffic"] = "true"
-        }
-        create("demo") {
-            initWith(getByName("debug"))
-            applicationIdSuffix = ".demo"
-            versionNameSuffix = "-demo"
-            buildConfigField(
-                "String",
-                "ROUTE_API_BASE_URL",
-                developmentRouteApiBaseUrl.get().asBuildConfigString(),
-            )
-            buildConfigField("boolean", "USE_FAKE_ROUTES", "true")
-            buildConfigField("boolean", "USE_FAKE_GEOCODING", "true")
-            buildConfigField("boolean", "ENABLE_NAVIGATION_SIMULATION", "true")
-            manifestPlaceholders["usesCleartextTraffic"] = "true"
-            matchingFallbacks += listOf("debug")
+            manifestPlaceholders["usesCleartextTraffic"] =
+                URI(apiBaseUrl).scheme.equals("http", ignoreCase = true).toString()
         }
         release {
             optimization {
@@ -66,12 +108,9 @@ android {
             }
             buildConfigField(
                 "String",
-                "ROUTE_API_BASE_URL",
-                releaseRouteApiBaseUrl.get().asBuildConfigString(),
+                "API_BASE_URL",
+                releaseApiBaseUrl.get().asBuildConfigString(),
             )
-            buildConfigField("boolean", "USE_FAKE_ROUTES", "false")
-            buildConfigField("boolean", "USE_FAKE_GEOCODING", "false")
-            buildConfigField("boolean", "ENABLE_NAVIGATION_SIMULATION", "false")
         }
     }
     compileOptions {

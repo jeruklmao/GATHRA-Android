@@ -70,13 +70,6 @@ class NavigationForegroundService : Service() {
             ACTION_REVALIDATE_FLOOD_SNAPSHOT -> intent
                 .getStringExtra(EXTRA_FLOOD_SNAPSHOT_ID)
                 ?.let(engine::revalidateFloodSnapshot)
-            ACTION_SET_SIMULATION_PAUSED -> engine.setSimulationPaused(
-                intent.getBooleanExtra(EXTRA_PAUSED, false),
-            )
-            ACTION_SET_SIMULATION_SPEED -> engine.setSimulationSpeed(
-                intent.getDoubleExtra(EXTRA_SPEED_MULTIPLIER, 1.0),
-            )
-            ACTION_SIMULATE_OFF_ROUTE -> engine.simulateOffRoute()
             else -> if (!foregroundStarted) stopSelf()
         }
         return START_NOT_STICKY
@@ -220,14 +213,6 @@ class NavigationForegroundService : Service() {
             "opsi.sman35jkt.gathra.navigation.action.RETRY_REROUTE"
         const val ACTION_REVALIDATE_FLOOD_SNAPSHOT =
             "opsi.sman35jkt.gathra.navigation.action.REVALIDATE_FLOOD_SNAPSHOT"
-        const val ACTION_SET_SIMULATION_PAUSED =
-            "opsi.sman35jkt.gathra.navigation.action.SET_SIMULATION_PAUSED"
-        const val ACTION_SET_SIMULATION_SPEED =
-            "opsi.sman35jkt.gathra.navigation.action.SET_SIMULATION_SPEED"
-        const val ACTION_SIMULATE_OFF_ROUTE =
-            "opsi.sman35jkt.gathra.navigation.action.SIMULATE_OFF_ROUTE"
-        const val EXTRA_PAUSED = "paused"
-        const val EXTRA_SPEED_MULTIPLIER = "speed_multiplier"
         const val EXTRA_FLOOD_SNAPSHOT_ID = "flood_snapshot_id"
 
         fun intent(context: Context, action: String): Intent =

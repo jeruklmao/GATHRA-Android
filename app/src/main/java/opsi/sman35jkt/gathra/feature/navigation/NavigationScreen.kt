@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -26,9 +25,7 @@ import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Navigation
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Place
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.TwoWheeler
@@ -38,7 +35,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -176,7 +172,6 @@ fun NavigationScreen(
 
         NavigationBottomPanel(
             session = session,
-            state = state,
             compact = compact,
             largeText = largeText,
             maxPanelHeight = bottomPanelMaxHeight,
@@ -446,7 +441,6 @@ private fun NavigationMapButton(
 @Composable
 private fun NavigationBottomPanel(
     session: NavigationSession,
-    state: NavigationUiState,
     compact: Boolean,
     largeText: Boolean,
     maxPanelHeight: Dp,
@@ -501,9 +495,6 @@ private fun NavigationBottomPanel(
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.navigation_retry_reroute))
                 }
-            }
-            if (state.simulationEnabled) {
-                DemoControls(state, onAction)
             }
             NavigationActionButtons(
                 session = session,
@@ -707,76 +698,6 @@ private fun NavigationMetric(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-}
-
-@Composable
-private fun DemoControls(
-    state: NavigationUiState,
-    onAction: (NavigationAction) -> Unit,
-) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-    ) {
-        Column(
-            modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                stringResource(R.string.navigation_simulation_badge),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                FilledTonalButton(
-                    onClick = { onAction(NavigationAction.ToggleSimulationPause) },
-                ) {
-                    Icon(
-                        if (state.simulationPaused) {
-                            Icons.Rounded.PlayArrow
-                        } else {
-                            Icons.Rounded.Pause
-                        },
-                        contentDescription = null,
-                    )
-                    Text(
-                        stringResource(
-                            if (state.simulationPaused) {
-                                R.string.navigation_simulation_resume
-                            } else {
-                                R.string.navigation_simulation_pause
-                            },
-                        ),
-                    )
-                }
-                listOf(1.0, 2.0, 4.0).forEach { speed ->
-                    FilterChip(
-                        selected = state.simulationSpeed == speed,
-                        onClick = {
-                            onAction(NavigationAction.SimulationSpeedSelected(speed))
-                        },
-                        label = {
-                            Text(
-                                stringResource(
-                                    R.string.navigation_simulation_speed_short,
-                                    speed.toInt(),
-                                ),
-                            )
-                        },
-                    )
-                }
-            }
-            TextButton(
-                onClick = { onAction(NavigationAction.SimulateOffRoute) },
-            ) {
-                Text(stringResource(R.string.navigation_simulation_off_route))
-            }
-        }
     }
 }
 

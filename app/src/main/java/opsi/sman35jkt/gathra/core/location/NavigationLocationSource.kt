@@ -6,12 +6,6 @@ import opsi.sman35jkt.gathra.domain.navigation.NavigationLocationSample
 
 interface NavigationLocationSource {
     fun updates(route: RouteOption): Flow<NavigationLocationEvent>
-
-    fun setSimulationPaused(paused: Boolean) = Unit
-
-    fun setSimulationSpeed(multiplier: Double) = Unit
-
-    fun simulateOffRoute() = Unit
 }
 
 sealed interface NavigationLocationEvent {
