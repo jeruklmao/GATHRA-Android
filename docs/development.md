@@ -1,8 +1,8 @@
 # GATHRA development
 
 This guide owns Android, emulator/device, and end-to-end development workflows.
-Backend provider data and local Compose operation are documented in
-[`../backend/README.md`](../backend/README.md).
+Backend provider data and local Compose operation are documented in the
+[GATHRA-Backend README](https://github.com/JerukLMAO/GATHRA-Backend#readme).
 
 ## Public API mode
 
@@ -191,7 +191,9 @@ The map-selected coordinate is always authoritative for routing.
 ## Local flood-simulation checks
 
 Public flood mutation endpoints are disabled. Start an isolated local stack
-with the opt-in from [`../backend/README.md`](../backend/README.md), then use:
+with the opt-in from the
+[GATHRA-Backend README](https://github.com/JerukLMAO/GATHRA-Backend#local-flood-simulation),
+then use:
 
 ```bash
 curl --fail --request DELETE \
@@ -249,16 +251,8 @@ JAVA_HOME=/opt/android-studio/jbr ./gradlew tasks --all | rg -i 'assemble|instal
 The Android CI workflow runs debug unit tests, debug lint, and debug/release
 assembly on pull requests and pushes to `main`.
 
-## Backend quality commands
+## Backend validation
 
-```bash
-cd backend
-npm ci
-npm run build
-npm run test:unit
-npm run test:integration
-npm audit --omit=dev
-```
-
-These checks do not replace a deliberate Compose/provider smoke test when
-routing data, Photon data, provider configuration, or Docker topology changes.
+Backend quality commands and Compose/provider checks belong to the independent
+[GATHRA-Backend repository](https://github.com/JerukLMAO/GATHRA-Backend#quality-checks)
+and are not run from this Android checkout.

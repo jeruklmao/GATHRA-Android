@@ -1,4 +1,4 @@
-# GATHRA
+# GATHRA Android
 
 GATHRA is a native Indonesian Android pilot for route preview and foreground
 turn-by-turn navigation. The app uses MapLibre and calls one provider-neutral
@@ -59,19 +59,20 @@ JAVA_HOME=/opt/android-studio/jbr ./gradlew assembleDebug
 Local backend overrides, emulator/device setup, and release differences are
 documented in [docs/development.md](docs/development.md).
 
-## Backend development
+## Backend integration
 
-The local stack requires Docker Compose and a deliberately installed Photon
-database volume. Setup, routing data, geocoding data, API contracts, flood
-simulation, and backend quality checks are owned by
-[backend/README.md](backend/README.md).
+The API is maintained independently in
+[JerukLMAO/GATHRA-Backend](https://github.com/JerukLMAO/GATHRA-Backend).
+Its README owns local stack setup, routing and geocoding data, API contracts,
+flood simulation, and backend quality checks.
 
 ## Documentation
 
 - [AGENTS.md](AGENTS.md): repository rules and verification for coding agents.
-- [backend/README.md](backend/README.md): backend operation and provider data.
 - [docs/architecture.md](docs/architecture.md): stable system architecture.
 - [docs/development.md](docs/development.md): Android and end-to-end workflows.
+- [GATHRA-Backend](https://github.com/JerukLMAO/GATHRA-Backend): backend
+  operation and provider data.
 
 OpenStreetMap-derived routing and geocoding data remains subject to
 OpenStreetMap attribution and the ODbL.

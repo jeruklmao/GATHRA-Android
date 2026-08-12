@@ -1,9 +1,9 @@
-# GATHRA agent guide
+# GATHRA Android agent guide
 
 Read [README.md](README.md), [docs/architecture.md](docs/architecture.md), and
-[docs/development.md](docs/development.md) before changing code. Read
-[backend/README.md](backend/README.md) before changing backend configuration or
-provider data.
+[docs/development.md](docs/development.md) before changing code. Backend code,
+provider data, and backend operations belong to the independent
+[GATHRA-Backend repository](https://github.com/JerukLMAO/GATHRA-Backend).
 
 ## Purpose and verified baseline
 
@@ -27,9 +27,8 @@ Android -> NestJS -> GraphHopper
   credentials, and Cloudflare configuration are separate operational work.
 
 The geocoding pilot covers Jakarta Pusat, Jakarta Selatan, Kota Tangerang, Kota
-Tangerang Selatan, and the versioned buffered envelope in
-`backend/geocoding/region/region-config.json`. Do not spell Tangerang as
-“Tanggerang” except in explicit typo-quality fixtures.
+Tangerang Selatan, and the backend's versioned buffered envelope. Do not spell
+Tangerang as “Tanggerang” except in explicit typo-quality fixtures.
 
 ## Android rules
 
@@ -62,24 +61,16 @@ Tangerang Selatan, and the versioned buffered envelope in
 - Keep all Android user-facing text in `strings.xml`, in Indonesian, and use
   Material theme tokens rather than screen-local colors.
 
-## Backend and provider rules
+## Backend integration constraints
 
 - Keep `RouteRepository`, `GeocodingRepository`, and
   `NavigationRepository` provider-neutral; DTOs never enter UI state.
 - GeoJSON positions are `[longitude, latitude]`; Android `GeoPoint` constructor
   order remains `latitude`, then `longitude`.
-- GraphHopper signs are normalized into GATHRA manoeuvre enums.
-- Keep provider services private on Compose networks. Only NestJS port 3000
-  may be published for local development.
-- Photon is the normal geocoder. `GEOCODING_PROVIDER=fake` is allowed only for
-  deterministic backend development and tests.
+- GraphHopper signs are normalized by the backend into GATHRA manoeuvre enums.
 - Outside-coverage geocoding suggestions may be shown but cannot be selected.
-- Do not download, rebuild, replace, or delete Photon indexes implicitly.
-  Candidate volumes, checksums, quality checks, and rollback must be explicit.
-- Do not delete GraphHopper caches without first resolving the exact data and
-  named volume being replaced.
-- Never commit API keys, tokens, `.env`, signing material, generated graphs,
-  Photon indexes, PBF files, address-like logs, or deployment artifacts.
+- Never commit API keys, tokens, `.env`, signing material, address-like logs,
+  or deployment artifacts.
 
 ## Flood-safety invariants
 
@@ -114,14 +105,6 @@ Tangerang Selatan, and the versioned buffered envelope in
 - `data/navigation/NavigationSessionEngine.kt` and
   `service/navigation/NavigationForegroundService.kt`: location, reroute, TTS,
   and cleanup lifecycle.
-- `backend/src/routes/graphhopper.client.ts`: provider validation and step
-  geometry intervals.
-- `backend/src/routes/routes.service.ts`: flood-aware route filtering/ranking.
-- `backend/src/geocoding/`: opaque tokens, private-query handling, regional
-  policy, cache, and provider normalization.
-- `backend/src/flood/`: simulated snapshot semantics and default-closed tools.
-- `backend/compose.yaml` and `backend/geocoding/scripts/`: private networking,
-  persistent provider data, and index management.
 
 ## Verification
 
@@ -142,17 +125,6 @@ Run connected tests when a compatible emulator/device is available:
 JAVA_HOME=/opt/android-studio/jbr ./gradlew connectedDebugAndroidTest
 ```
 
-Backend:
-
-```bash
-cd backend
-npm ci
-npm run build
-npm run test:unit
-npm run test:integration
-npm audit --omit=dev
-```
-
 Run focused tests first, then the full relevant matrix. Never run a full Photon
 import merely to validate source changes.
 
@@ -162,29 +134,17 @@ import merely to validate source changes.
   consistency, MQTT/sensor ingestion, or real-time push.
 - Navigation survives Activity recreation through application-scoped state but
   has limited process-death recovery.
-- GraphHopper motorcycle costing is not calibrated against Indonesian access
-  rules or field observations.
-- The geocoding corpus is source-derived smoke data, not an independently
-  verified address register. Promote independently reviewed cases before using
-  it as an acceptance gate.
-- Exercise Photon candidate-volume backup, restore, and rollback on disposable
-  data before relying on the procedure operationally.
-- A future flood-storage milestone should preserve `FloodHazardProvider` while
-  adding transactional immutable PostgreSQL/PostGIS snapshots; keep sensor
-  ingestion out of that storage milestone.
 
 ## Onboarding checklist
 
 1. Run `git status --short --branch`, inspect the current diff, and identify the
    actual default branch before editing.
-2. Read the four retained documentation files relevant to the change.
+2. Read the three retained documentation files relevant to the change.
 3. Confirm whether Android should use the public default or an explicit local
    debug override.
 4. Inspect source, tests, workflows, and provider configuration rather than
    trusting historical PR text or generated reports.
 5. Preserve coordinate authority, provider privacy, foreground-only location,
    and flood-safety invariants.
-6. Before changing provider data, verify source, checksum, compatibility,
-   resource needs, region version, rollback volume, and free space.
-7. Run focused checks, then the full relevant verification matrix, and report
+6. Run focused checks, then the full relevant verification matrix, and report
    only results actually observed.
