@@ -45,6 +45,7 @@ import org.maplibre.android.style.layers.PropertyFactory.circleRadius
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
 import org.maplibre.android.style.layers.PropertyFactory.fillColor
+import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
@@ -56,7 +57,6 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
-import org.maplibre.geojson.Polygon
 import opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot
 import opsi.sman35jkt.gathra.core.model.GeoBounds
 import opsi.sman35jkt.gathra.core.model.GeoPoint
@@ -346,12 +346,21 @@ private class MapRouteRenderer(
             FillLayer(FLOOD_FILL_LAYER_ID, FLOOD_SOURCE_ID).withProperties(
                 fillColor(
                     match(
-                        get("riskLevel"),
+                        get(FLOOD_VISUAL_STATE_PROPERTY),
                         literal("LOW"), color(0x332196F3.toInt()),
                         literal("MEDIUM"), color(0x40FF9800.toInt()),
                         literal("HIGH"), color(0x4DEF5350.toInt()),
                         literal("BLOCKED"), color(0x59B71C1C.toInt()),
                         color(0x339E9E9E.toInt()),
+                    ),
+                ),
+                fillOpacity(
+                    match(
+                        get(FLOOD_VISUAL_STATE_PROPERTY),
+                        literal("STALE"), literal(0.55f),
+                        literal("NO_TELEMETRY"), literal(0.45f),
+                        literal("UNSPECIFIED_SENSOR"), literal(0.45f),
+                        literal(1.0f),
                     ),
                 ),
             ),
@@ -361,9 +370,18 @@ private class MapRouteRenderer(
                 lineCap(Property.LINE_CAP_ROUND),
                 lineJoin(Property.LINE_JOIN_ROUND),
                 lineWidth(2.5f),
+                lineOpacity(
+                    match(
+                        get(FLOOD_VISUAL_STATE_PROPERTY),
+                        literal("STALE"), literal(0.0f),
+                        literal("NO_TELEMETRY"), literal(0.0f),
+                        literal("UNSPECIFIED_SENSOR"), literal(0.0f),
+                        literal(1.0f),
+                    ),
+                ),
                 lineColor(
                     match(
-                        get("riskLevel"),
+                        get(FLOOD_VISUAL_STATE_PROPERTY),
                         literal("LOW"), color(0xFF2196F3.toInt()),
                         literal("MEDIUM"), color(0xFFFF9800.toInt()),
                         literal("HIGH"), color(0xFFEF5350.toInt()),
@@ -374,6 +392,25 @@ private class MapRouteRenderer(
             ),
             FLOOD_FILL_LAYER_ID,
         )
+        style.addLayerAbove(
+            LineLayer(FLOOD_UNCERTAIN_OUTLINE_LAYER_ID, FLOOD_SOURCE_ID).withProperties(
+                lineCap(Property.LINE_CAP_ROUND),
+                lineJoin(Property.LINE_JOIN_ROUND),
+                lineWidth(2.5f),
+                lineColor(0xFF9E9E9E.toInt()),
+                lineDasharray(arrayOf(1.25f, 1.5f)),
+                lineOpacity(
+                    match(
+                        get(FLOOD_VISUAL_STATE_PROPERTY),
+                        literal("STALE"), literal(0.72f),
+                        literal("NO_TELEMETRY"), literal(0.58f),
+                        literal("UNSPECIFIED_SENSOR"), literal(0.58f),
+                        literal(0.0f),
+                    ),
+                ),
+            ),
+            FLOOD_OUTLINE_LAYER_ID,
+        )
 
         style.addLayerAbove(
             LineLayer(ALTERNATIVE_ROUTE_LAYER_ID, ALTERNATIVE_ROUTE_SOURCE_ID).withProperties(
@@ -383,7 +420,7 @@ private class MapRouteRenderer(
                 lineOpacity(ALTERNATIVE_ROUTE_OPACITY),
                 lineDasharray(arrayOf(1.25f, 1.5f)),
             ),
-            FLOOD_OUTLINE_LAYER_ID,
+            FLOOD_UNCERTAIN_OUTLINE_LAYER_ID,
         )
         style.addLayerAbove(
             LineLayer(SELECTED_ROUTE_OUTLINE_LAYER_ID, SELECTED_ROUTE_SOURCE_ID).withProperties(
@@ -732,23 +769,6 @@ private fun Style.geoJsonSource(id: String): GeoJsonSource =
         "Expected GeoJSON source $id to exist in the loaded map style."
     }
 
-private fun floodFeatureCollection(snapshot: FloodHazardSnapshot): FeatureCollection {
-    val features = snapshot.hazards.mapNotNull { hazard ->
-        val polygonPoints = hazard.rings.map { ring ->
-            ring.filter(GeoPoint::isRenderable).map(GeoPoint::toGeoJsonPoint)
-        }
-        if (polygonPoints.isEmpty() || polygonPoints.first().size < 3) {
-            null
-        } else {
-            val polygon = Polygon.fromLngLats(polygonPoints)
-            val feature = Feature.fromGeometry(polygon, null, hazard.id)
-            feature.addStringProperty("riskLevel", hazard.level.name)
-            feature
-        }
-    }
-    return FeatureCollection.fromFeatures(features.toTypedArray())
-}
-
 private fun routeFeatureCollection(routes: List<RouteOption>): FeatureCollection {
     val features = routes.mapNotNull { route ->
         val points = route.geometry.points
@@ -802,6 +822,7 @@ private fun List<RouteOption>.cameraGeometryKey(): String? {
 private const val FLOOD_SOURCE_ID = "gathra-flood-source"
 private const val FLOOD_FILL_LAYER_ID = "gathra-flood-fill"
 private const val FLOOD_OUTLINE_LAYER_ID = "gathra-flood-outline"
+private const val FLOOD_UNCERTAIN_OUTLINE_LAYER_ID = "gathra-flood-uncertain-outline"
 
 private const val ALTERNATIVE_ROUTE_SOURCE_ID = "gathra-route-alternative-source"
 private const val SELECTED_ROUTE_SOURCE_ID = "gathra-route-selected-source"

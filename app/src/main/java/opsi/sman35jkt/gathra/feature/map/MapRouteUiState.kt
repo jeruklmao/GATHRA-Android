@@ -35,7 +35,7 @@ data class MapRouteUiState(
     val selectedFloodHazardId: String? = null,
     val isFloodLayerVisible: Boolean = true,
     val isLoadingFloodHazards: Boolean = false,
-    val floodDataStatus: FloodDataStatus = FloodDataStatus.UNAVAILABLE,
+    val floodRefreshStatus: FloodRefreshStatus = FloodRefreshStatus.UNAVAILABLE,
     val floodRouteSyncState: FloodRouteSyncState = FloodRouteSyncState.NOT_EVALUATED,
     val floodRouteTargetSnapshotId: String? = null,
 ) {
@@ -62,7 +62,7 @@ data class MapRouteUiState(
         )
 
     val isSelectedRouteRiskCurrent: Boolean
-        get() = floodDataStatus == FloodDataStatus.FRESH &&
+        get() = floodRefreshStatus == FloodRefreshStatus.SUCCEEDED &&
             floodRouteSyncState == FloodRouteSyncState.SYNCHRONIZED
 
     val canUseSelectedRoute: Boolean
@@ -110,10 +110,11 @@ enum class MapRouteError {
     ROUTE_SERVICE_UNAVAILABLE,
 }
 
-enum class FloodDataStatus {
+/** Transport/repository refresh status; this is not sensor measurement freshness. */
+enum class FloodRefreshStatus {
     UNAVAILABLE,
-    FRESH,
-    STALE,
+    SUCCEEDED,
+    RETAINED_AFTER_ERROR,
 }
 
 enum class FloodRouteSyncState {

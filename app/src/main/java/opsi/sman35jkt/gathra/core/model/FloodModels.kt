@@ -34,6 +34,18 @@ enum class FloodHazardSource {
 }
 
 /**
+ * Backend-authoritative age/availability of the sensor measurement.
+ *
+ * This is deliberately independent from both [FloodHazardLevel] and the
+ * success or failure of the HTTP snapshot refresh.
+ */
+enum class FloodHazardFreshness {
+    FRESH,
+    STALE,
+    NO_TELEMETRY,
+}
+
+/**
  * Domain representation of a flood hazard polygon overlay.
  */
 @Immutable
@@ -47,6 +59,9 @@ data class FloodHazardPolygon(
     val validUntilEpochMillis: Long?,
     val source: FloodHazardSource,
     val sourceNodeIds: List<String>,
+    val routingMultiplier: Double,
+    val reasonCodes: List<String>,
+    val freshness: FloodHazardFreshness?,
 )
 
 /**

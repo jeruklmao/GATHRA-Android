@@ -172,7 +172,7 @@ fun MapRouteScreen(
                     },
                     routes = state.routes,
                     selectedRouteId = state.selectedRouteId,
-                    floodDataStatus = state.floodDataStatus,
+                    floodRefreshStatus = state.floodRefreshStatus,
                     floodRouteSyncState = state.floodRouteSyncState,
                     isLoadingFloodHazards = state.isLoadingFloodHazards,
                     riskIsCurrent = state.isSelectedRouteRiskCurrent,
@@ -273,20 +273,23 @@ fun MapRouteScreen(
                         },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
+                            .windowInsetsPadding(WindowInsets.statusBars)
                             .padding(bottom = sheetClearance + 12.dp),
                     )
                 }
 
-                CurrentLocationButton(
-                    isLocating = state.isLocating,
-                    onClick = { onAction(MapRouteAction.CurrentLocationClicked) },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(
-                            end = 16.dp,
-                            bottom = sheetClearance + 16.dp,
-                        ),
-                )
+                if (state.selectedFloodHazard == null) {
+                    CurrentLocationButton(
+                        isLocating = state.isLocating,
+                        onClick = { onAction(MapRouteAction.CurrentLocationClicked) },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(
+                                end = 16.dp,
+                                bottom = sheetClearance + 16.dp,
+                            ),
+                    )
+                }
             }
         }
     }

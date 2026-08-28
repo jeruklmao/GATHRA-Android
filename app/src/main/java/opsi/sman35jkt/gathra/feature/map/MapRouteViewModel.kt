@@ -149,10 +149,10 @@ class MapRouteViewModel(
         _uiState.update {
             it.copy(
                 isLoadingFloodHazards = false,
-                floodDataStatus = if (it.floodHazardSnapshot == null) {
-                    it.floodDataStatus
+                floodRefreshStatus = if (it.floodHazardSnapshot == null) {
+                    it.floodRefreshStatus
                 } else {
-                    FloodDataStatus.STALE
+                    FloodRefreshStatus.RETAINED_AFTER_ERROR
                 },
             )
         }
@@ -192,7 +192,7 @@ class MapRouteViewModel(
                     current.copy(
                         floodHazardSnapshot = snapshot,
                         isLoadingFloodHazards = false,
-                        floodDataStatus = FloodDataStatus.FRESH,
+                        floodRefreshStatus = FloodRefreshStatus.SUCCEEDED,
                         floodRouteSyncState = nextSyncState,
                         floodRouteTargetSnapshotId = if (hasMismatch) {
                             snapshot.snapshotId
@@ -215,10 +215,10 @@ class MapRouteViewModel(
                 _uiState.update {
                     it.copy(
                         isLoadingFloodHazards = false,
-                        floodDataStatus = if (it.floodHazardSnapshot == null) {
-                            FloodDataStatus.UNAVAILABLE
+                        floodRefreshStatus = if (it.floodHazardSnapshot == null) {
+                            FloodRefreshStatus.UNAVAILABLE
                         } else {
-                            FloodDataStatus.STALE
+                            FloodRefreshStatus.RETAINED_AFTER_ERROR
                         },
                     )
                 }

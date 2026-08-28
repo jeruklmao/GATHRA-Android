@@ -11,7 +11,8 @@ NestJS
   |-- Route service -------> GraphHopper 11.0
   |      `---------------> independent flood geometry evaluation
   |-- Geocoding provider --> Photon 0.5.0
-  |-- Flood provider ------> simulated in-memory snapshots
+  |-- Flood provider ------> PostgreSQL sensor state (production)
+  |                          or explicit in-memory simulation (development)
   `-- Health -------------> selected routing + geocoding readiness
 ```
 
@@ -136,20 +137,20 @@ address-like queries or result text.
 
 ## Flood snapshot flow
 
-The current `FloodHazardProvider` is simulated, in-memory, and local to one
-NestJS process. The read-only GeoJSON endpoint is always registered;
-unauthenticated mutation endpoints require an explicit local opt-in. The
-authenticated administration controller, public read controller, and route
-service all resolve the same singleton provider when administration is
-enabled, so one process has one coherent snapshot. Each process adds a random
-instance identity to snapshot IDs so a restart cannot reuse the previous
-process's initial identifiers.
+Production uses GATHRA Node firmware 2.1.1 and LoRa Protocol 3 through GATHRA
+Gateway firmware 2.2.0. Authenticated ingestion stores immutable telemetry in
+PostgreSQL. The Backend sensor classifier combines telemetry with durable,
+runtime-configurable deployment thresholds, hysteresis, and routing
+multipliers. Every enabled deployment contributes its coverage polygon to the
+public, unauthenticated `GET /api/v1/flood-hazards` snapshot, including LOW and
+UNKNOWN states and stale/no-telemetry lifecycle states.
 
-Administration fails closed: both an explicit enable flag and a valid SHA-256
-token digest are required at startup. The controller compares bearer-token
-digests without embedding the raw token, emits metadata-only mutation audit
-events, sends non-cacheable responses, and is excluded from OpenAPI. The raw
-token and deployment routing remain external operational state.
+The Android flood domain preserves each hazard's `riskLevel`,
+`routingMultiplier`, `freshness`, `reasonCodes`, nullable `observedAt` and
+`validUntil`, `source`, and `sourceNodeIds`. It never reruns the Backend
+classifier or infers routing policy from a risk label. Explicit in-memory
+simulation remains a Backend development mode; Android presentation is
+source-aware so simulation wording cannot leak into SENSOR data.
 
 For each preview request:
 
@@ -157,8 +158,8 @@ For each preview request:
 2. Flood polygons become request-scoped GraphHopper custom-model areas.
 3. GraphHopper returns route candidates.
 4. NestJS independently intersects every LineString with the same snapshot.
-5. Routes touching a `BLOCKED` polygon are rejected; usable routes are ranked
-   and exactly one is recommended.
+5. Routes touching a polygon whose runtime multiplier is zero are rejected;
+   usable routes are ranked and exactly one is recommended.
 6. Route-risk metadata records the snapshot used for evaluation.
 
 Android polls the read-only snapshot only while its UI lifecycle is started.
@@ -178,8 +179,38 @@ its old risk as current. Generation and target-snapshot checks prevent late
 responses from replacing newer guidance. Active navigation reuses its guarded
 foreground-service reroute flow.
 
-There is no database, durable history, multi-instance consistency, sensor
-ingestion, or real-time push invalidation.
+Sensor freshness and snapshot retrieval are separate dimensions. HTTP 200
+means Android received a valid API snapshot; it does not mean every sensor
+measurement is `FRESH`:
+
+- `FRESH` can carry LOW, MEDIUM, HIGH, BLOCKED, or UNKNOWN when a recent
+  measurement is unusable.
+- `STALE` carries UNKNOWN after a prior measurement passes `validUntil`.
+- `NO_TELEMETRY` carries UNKNOWN with nullable observation/validity times
+  before a deployment has usable telemetry.
+
+UNKNOWN always means the current condition cannot be determined. It is not a
+synonym for LOW, no flood, or safe. Stale/no-telemetry polygons remain visible
+as neutral dashed coverage. Reason codes explain unavailable sensor states;
+Android maps the bounded current codes into user-facing Indonesian and uses a
+generic phrase for future codes.
+
+The current bounded sensor reasons are `NO_TELEMETRY`, `STALE`,
+`REFERENCE_DISTANCE_MISSING`, `ACCEPTED_DISTANCE_MISSING`, `FILTER_INVALID`,
+`SENSOR_UNHEALTHY`, and `DEPLOYMENT_DISABLED`. Raw codes are retained in the
+domain for contract fidelity but never shown directly in normal UI. For
+`source=SENSOR`, `sourceNodeIds` provides compact Node provenance; simulated
+hazards do not invent a sensor identity.
+
+`routingMultiplier` is authoritative and independent of `riskLevel`: 1 means
+no route penalty, a value strictly between 0 and 1 means a penalty, and 0 means
+hard exclusion. Android explains this actual effect without hard-coding the
+current Backend defaults.
+
+Android does not persist flood snapshots for offline use and does not expose
+Node temperature, humidity, battery, radio diagnostics, telemetry history, or
+Gateway operational metrics in this phase. Snapshot invalidation remains
+polling-based rather than real-time push.
 
 ## Deployment boundary
 

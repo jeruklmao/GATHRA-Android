@@ -74,7 +74,7 @@ class MapRouteFloodSafetyViewModelTest {
     }
 
     @Test
-    fun `screen stop preserves the snapshot but no longer presents it as fresh`() = runTest {
+    fun `screen stop preserves the snapshot but marks transport refresh retention`() = runTest {
         val floodRepository = RecordingFloodRepository()
         val viewModel = createViewModel(floodRepository = floodRepository)
         viewModel.onAction(MapRouteAction.ScreenStarted)
@@ -84,7 +84,10 @@ class MapRouteFloodSafetyViewModelTest {
         viewModel.onAction(MapRouteAction.ScreenStopped)
 
         assertEquals(snapshot, viewModel.uiState.value.floodHazardSnapshot)
-        assertEquals(FloodDataStatus.STALE, viewModel.uiState.value.floodDataStatus)
+        assertEquals(
+            FloodRefreshStatus.RETAINED_AFTER_ERROR,
+            viewModel.uiState.value.floodRefreshStatus,
+        )
         assertFalse(viewModel.uiState.value.isSelectedRouteRiskCurrent)
     }
 
@@ -127,8 +130,8 @@ class MapRouteFloodSafetyViewModelTest {
             viewModel.uiState.value.floodHazardSnapshot,
         )
         assertEquals(
-            FloodDataStatus.STALE,
-            viewModel.uiState.value.floodDataStatus,
+            FloodRefreshStatus.RETAINED_AFTER_ERROR,
+            viewModel.uiState.value.floodRefreshStatus,
         )
         assertFalse(viewModel.uiState.value.isSelectedRouteRiskCurrent)
     }

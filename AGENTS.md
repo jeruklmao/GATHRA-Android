@@ -13,7 +13,7 @@ pilot. Its stable boundary is:
 ```text
 Android -> NestJS -> GraphHopper
                  -> Photon
-                 -> in-memory simulated flood provider
+                 -> PostgreSQL sensor-backed flood provider
 ```
 
 - The live NestJS API base URL is `https://api.gathra.my.id/`.
@@ -74,12 +74,13 @@ Tangerang as “Tanggerang” except in explicit typo-quality fixtures.
 
 ## Flood-safety invariants
 
-- Flood hazards are simulated, in-memory, per-process, and not a public-safety
-  data source.
+- Production flood hazards are sensor-backed modeled observations and are not
+  a public-safety guarantee. In-memory hazards are explicit local simulation.
 - Development mutation endpoints are unauthenticated and disabled by default.
   Enable them only for an isolated local test stack.
-- A route intersecting a `BLOCKED` polygon cannot be selectable or
-  recommended. Blocked-only provider results return `NO_ROUTE_DUE_TO_FLOOD`.
+- A route intersecting a polygon whose runtime multiplier is zero cannot be
+  selectable or recommended. Exclusion-only provider results return
+  `NO_ROUTE_DUE_TO_FLOOD`.
 - `UNKNOWN` and `NOT_EVALUATED` are never represented as LOW.
 - A route-risk snapshot must match the visible hazard snapshot. Mismatch
   triggers guarded recalculation; stale guidance must not imply current safety.
@@ -130,8 +131,8 @@ import merely to validate source changes.
 
 ## Current limitations and narrow priorities
 
-- Flood snapshots have no PostgreSQL/PostGIS persistence, multi-instance
-  consistency, MQTT/sensor ingestion, or real-time push.
+- Sensor deployment policy and telemetry are PostgreSQL-backed. Android has no
+  persistent offline flood cache or real-time push invalidation.
 - Navigation survives Activity recreation through application-scoped state but
   has limited process-death recovery.
 

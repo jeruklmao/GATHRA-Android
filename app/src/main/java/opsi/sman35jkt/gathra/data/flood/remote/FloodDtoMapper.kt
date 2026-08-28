@@ -1,6 +1,7 @@
 package opsi.sman35jkt.gathra.data.flood.remote
 
 import opsi.sman35jkt.gathra.data.common.parseStrictIsoTimestamp
+import opsi.sman35jkt.gathra.core.model.FloodHazardFreshness
 import opsi.sman35jkt.gathra.core.model.FloodHazardLevel
 import opsi.sman35jkt.gathra.core.model.FloodHazardPolygon
 import opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot
@@ -60,15 +61,18 @@ private fun FloodHazardFeatureDto.toDomain(): FloodHazardPolygon {
     val level = mapFloodLevel(props.riskLevel)
         ?: throw InvalidFloodResponseException()
     requireFloodContract(props.confidence == null || props.confidence in 0.0..1.0)
-    val observedAt = parseStrictIsoTimestamp(props.observedAt)
-        ?: throw InvalidFloodResponseException()
+    val observedAt = props.observedAt?.let {
+        parseStrictIsoTimestamp(it).also { parsed ->
+            requireFloodContract(parsed != null)
+        }
+    }
     val hazardValidUntil = props.validUntil?.let {
         parseStrictIsoTimestamp(it).also { parsed ->
             requireFloodContract(parsed != null)
         }
     }
     requireFloodContract(
-        hazardValidUntil == null || hazardValidUntil > observedAt,
+        hazardValidUntil == null || observedAt == null || hazardValidUntil > observedAt,
     )
     requireFloodContract(
         props.description == null || props.description.length <= MAX_DESCRIPTION_LENGTH,
@@ -76,6 +80,20 @@ private fun FloodHazardFeatureDto.toDomain(): FloodHazardPolygon {
     val sourceNodeIds = props.sourceNodeIds.orEmpty()
     requireFloodContract(sourceNodeIds.size <= MAX_SOURCE_NODE_IDS)
     requireFloodContract(sourceNodeIds.all(::isValidIdentifier))
+    val routingMultiplier = props.routingMultiplier
+        ?: throw InvalidFloodResponseException()
+    requireFloodContract(
+        routingMultiplier.isFinite() && routingMultiplier in 0.0..1.0,
+    )
+    val reasonCodes = props.reasonCodes.orEmpty()
+    requireFloodContract(reasonCodes.size <= MAX_REASON_CODES)
+    requireFloodContract(
+        reasonCodes.all { reason ->
+            reason.isNotBlank() && reason.length <= MAX_REASON_CODE_LENGTH
+        },
+    )
+    val freshness = mapFloodFreshness(props.freshness)
+    requireFloodContract(props.freshness == null || freshness != null)
 
     return FloodHazardPolygon(
         id = id,
@@ -87,6 +105,9 @@ private fun FloodHazardFeatureDto.toDomain(): FloodHazardPolygon {
         validUntilEpochMillis = hazardValidUntil,
         source = mapFloodSource(props.source),
         sourceNodeIds = sourceNodeIds,
+        routingMultiplier = routingMultiplier,
+        reasonCodes = reasonCodes,
+        freshness = freshness,
     )
 }
 
@@ -103,6 +124,13 @@ fun mapFloodSource(raw: String?): FloodHazardSource = when (raw?.uppercase()) {
     "SIMULATED" -> FloodHazardSource.SIMULATED
     "SENSOR" -> FloodHazardSource.SENSOR
     else -> FloodHazardSource.UNKNOWN
+}
+
+fun mapFloodFreshness(raw: String?): FloodHazardFreshness? = when (raw?.uppercase()) {
+    "FRESH" -> FloodHazardFreshness.FRESH
+    "STALE" -> FloodHazardFreshness.STALE
+    "NO_TELEMETRY" -> FloodHazardFreshness.NO_TELEMETRY
+    else -> null
 }
 
 private fun isValidIdentifier(value: String): Boolean =
@@ -126,4 +154,6 @@ private const val MIN_RING_POINTS = 4
 private const val MAX_IDENTIFIER_LENGTH = 128
 private const val MAX_DESCRIPTION_LENGTH = 500
 private const val MAX_SOURCE_NODE_IDS = 100
+private const val MAX_REASON_CODES = 16
+private const val MAX_REASON_CODE_LENGTH = 64
 private const val IDENTIFIER_PUNCTUATION = "._:-"

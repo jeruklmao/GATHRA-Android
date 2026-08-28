@@ -103,7 +103,7 @@
     <string name="open_settings">Buka pengaturan</string>
     <string name="continue_demo">Lanjutkan mode demo</string>
 
-    <string name="map_accessibility">Peta interaktif GATHRA. Ketuk peta saat memilih titik.</string>
+    <string name="map_accessibility">Peta interaktif GATHRA. Ketuk area berwarna untuk membuka kondisi banjir, atau ketuk peta saat memilih titik.</string>
 
     <string name="navigation_brand">GATHRA · NAVIGASI</string>
     <string name="navigation_preparing">Menyiapkan navigasi…</string>
@@ -196,18 +196,63 @@
     <string name="flood_risk_explanation_blocked">Melewati lokasi banjir yang ditutup.</string>
     <string name="flood_risk_explanation_unknown">Risiko belum diketahui berdasarkan data yang tersedia.</string>
     <string name="flood_risk_explanation_not_evaluated">Risiko belum dievaluasi untuk data banjir yang sedang ditampilkan.</string>
-    <string name="flood_disclaimer">Data banjir simulasi · Cakupan data mungkin tidak lengkap</string>
-    <string name="flood_hazard_title">Area terindikasi banjir</string>
-    <string name="flood_risk_low_desc">Risiko banjir rendah pada area ini berdasarkan data simulasi.</string>
-    <string name="flood_risk_medium_desc">Terindikasi genangan air sedang. Harap berhati-hati.</string>
-    <string name="flood_risk_high_desc">Terindikasi banjir tinggi. Hindari melintasi jika memungkinkan.</string>
-    <string name="flood_risk_blocked_desc">Tidak dapat dilalui berdasarkan data banjir.</string>
-    <string name="flood_risk_unknown_desc">Tingkat risiko tidak diketahui.</string>
+    <string name="flood_disclaimer">Cakupan pemantauan banjir terbatas. Kondisi di luar area yang dipantau belum diketahui.</string>
+    <string name="flood_hazard_title">Area pemantauan banjir</string>
+    <string name="flood_sensor_low_desc">Area ini sedang dipantau oleh sensor GATHRA. Kondisi banjir saat ini rendah.</string>
+    <string name="flood_sensor_medium_desc">Sensor GATHRA menunjukkan kondisi banjir sedang di area ini.</string>
+    <string name="flood_sensor_high_desc">Sensor GATHRA menunjukkan kondisi banjir tinggi di area ini.</string>
+    <string name="flood_sensor_blocked_desc">Sensor GATHRA menunjukkan kondisi yang tidak dapat dilalui di area ini.</string>
+    <string name="flood_sensor_unknown_desc">Kondisi banjir di area ini belum dapat ditentukan dari data sensor saat ini. Area ini tidak boleh dianggap aman.</string>
+    <string name="flood_simulated_low_desc">Simulasi menunjukkan risiko banjir rendah di area ini.</string>
+    <string name="flood_simulated_medium_desc">Simulasi menunjukkan risiko banjir sedang di area ini.</string>
+    <string name="flood_simulated_high_desc">Simulasi menunjukkan risiko banjir tinggi di area ini.</string>
+    <string name="flood_simulated_blocked_desc">Simulasi menandai area ini sebagai tidak dapat dilalui.</string>
+    <string name="flood_simulated_unknown_desc">Simulasi belum dapat menentukan kondisi banjir di area ini.</string>
+    <string name="flood_unknown_source_desc">Kondisi banjir di area ini belum dapat ditentukan dari data yang tersedia.</string>
     <string name="flood_hazard_confidence_format">Tingkat keyakinan: %1$d%%</string>
-    <string name="flood_source_simulated">Sumber data: Data banjir simulasi</string>
-    <string name="flood_source_sensor">Sumber data: Sensor</string>
-    <string name="flood_source_unknown">Sumber data: Tidak diketahui</string>
-    <string name="flood_disclaimer_coverage_incomplete">Cakupan data mungkin tidak lengkap</string>
+    <string name="flood_detail_source_label">Sumber</string>
+    <string name="flood_source_simulated">Data banjir simulasi</string>
+    <string name="flood_source_sensor">Sensor GATHRA</string>
+    <string name="flood_source_unknown">Tidak diketahui</string>
+    <plurals name="flood_source_sensor_count">
+        <item quantity="other">%1$d sensor</item>
+    </plurals>
+    <string name="flood_detail_freshness_label">Status data</string>
+    <string name="flood_freshness_fresh">Data terbaru</string>
+    <string name="flood_freshness_stale">Data sudah lama</string>
+    <string name="flood_freshness_no_telemetry">Belum ada data sensor</string>
+    <string name="flood_freshness_unavailable">Status data sensor belum tersedia</string>
+    <string name="flood_observed_at_unavailable">Belum ada waktu pengukuran</string>
+    <plurals name="flood_observed_seconds_ago">
+        <item quantity="other">Diukur %1$d detik lalu</item>
+    </plurals>
+    <plurals name="flood_observed_minutes_ago">
+        <item quantity="other">Diukur %1$d menit lalu</item>
+    </plurals>
+    <plurals name="flood_observed_hours_ago">
+        <item quantity="other">Diukur %1$d jam lalu</item>
+    </plurals>
+    <plurals name="flood_observed_days_ago">
+        <item quantity="other">Diukur %1$d hari lalu</item>
+    </plurals>
+    <string name="flood_valid_until_format">Data berlaku hingga %1$s</string>
+    <string name="flood_expired_at_format">Masa berlaku data berakhir pukul %1$s</string>
+    <string name="flood_detail_routing_label">Pengaruh pada rute</string>
+    <string name="flood_routing_no_effect">Area ini tidak memengaruhi pemilihan rute.</string>
+    <string name="flood_routing_penalty">Rute yang melewati area ini akan dihindari jika tersedia alternatif yang lebih aman.</string>
+    <string name="flood_routing_excluded">Rute yang melewati area ini tidak digunakan.</string>
+    <string name="flood_detail_explanation_label">Penjelasan</string>
+    <string name="flood_reason_no_telemetry">Belum ada pengukuran dari sensor.</string>
+    <string name="flood_reason_stale">Pengukuran terakhir sudah terlalu lama untuk menentukan kondisi saat ini.</string>
+    <string name="flood_reason_reference_distance_missing">Kalibrasi ketinggian air belum tersedia.</string>
+    <string name="flood_reason_accepted_distance_missing">Sensor belum memperoleh pembacaan jarak yang dapat digunakan.</string>
+    <string name="flood_reason_filter_invalid">Pembacaan sensor belum cukup stabil untuk menentukan kondisi banjir.</string>
+    <string name="flood_reason_sensor_unhealthy">Sensor sedang mengalami masalah pada pembacaan ketinggian air.</string>
+    <string name="flood_reason_deployment_disabled">Pemantauan sensor untuk area ini sedang dinonaktifkan.</string>
+    <string name="flood_reason_generic">Data sensor belum dapat digunakan untuk menentukan kondisi banjir.</string>
+    <string name="flood_disclaimer_sensor_coverage">Area berwarna menunjukkan cakupan sensor GATHRA. Kondisi banjir di luar area yang dipantau belum diketahui.</string>
+    <string name="flood_disclaimer_simulated_coverage">Area berwarna menunjukkan cakupan data simulasi. Kondisi di luar cakupan belum diketahui.</string>
+    <string name="flood_disclaimer_coverage_incomplete">Cakupan data mungkin tidak lengkap. Kondisi di luar area berwarna belum diketahui.</string>
     <string name="flood_snapshot_updated">Data banjir telah diperbarui.</string>
     <string name="flood_route_updating">Kondisi banjir berubah. Rute sedang diperbarui.</string>
     <string name="flood_route_update_failed">Rute belum diperbarui setelah perubahan kondisi banjir.</string>

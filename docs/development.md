@@ -188,7 +188,27 @@ notification permission separately; denying it does not grant location access.
 
 The map-selected coordinate is always authoritative for routing.
 
-## Local flood-simulation checks
+## Flood contract and local simulation checks
+
+Production uses the public sensor-backed endpoint. Its current data path is:
+
+```text
+Node 2.1.1 / Protocol 3 -> Gateway 2.2.0 -> PostgreSQL telemetry
+  -> Backend sensor classification -> public flood hazards
+  -> routing + Android
+```
+
+For a read-only production check, open a returned polygon and confirm sensor
+source/provenance, Indonesian freshness, observation time, actual routing
+effect, and sensor-coverage disclaimer. HTTP success is only retrieval status;
+the payload may legitimately report `STALE` or `NO_TELEMETRY`. `UNKNOWN` never
+means safe, and nullable `observedAt`/`validUntil` are valid for no telemetry.
+
+Do not change production thresholds or disrupt a Node to force lifecycle
+states. Use deterministic Android fixtures or an isolated local Backend for
+STALE, NO_TELEMETRY, health-reason, and multiplier visual checks.
+
+### Explicit local simulation
 
 Public flood mutation endpoints are disabled. Start an isolated local stack
 with the opt-in from the
@@ -213,14 +233,13 @@ With Android pointed at local NestJS, confirm:
 - Failure retains geometry only as stale guidance and exposes retry.
 - A blocked-only route set is rejected rather than recommended.
 - `UNKNOWN` and `NOT_EVALUATED` remain neutral/caution states.
+- simulated wording appears only for `source=SIMULATED`.
 
-Flood data is simulated, in-memory, and not evidence that a route is safe.
+Local simulation is in-memory and not evidence that a route is safe.
 
-For an already deployed backend, use only the authenticated administration
-surface and its external mode-600 token file. It changes the same in-process
-snapshot consumed by Android and route preview, unlike a second NestJS
-simulation container. Never enable the unauthenticated `/dev` surface on the
-public deployment. Restarting the backend clears the simulated state.
+Never enable the unauthenticated `/dev` surface on the public deployment.
+Android uses only the unauthenticated read-only flood endpoint; it must never
+embed flood-administrator or Gateway credentials.
 
 ## Android quality commands
 

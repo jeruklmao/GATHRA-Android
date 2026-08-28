@@ -49,7 +49,7 @@ import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import opsi.sman35jkt.gathra.feature.map.MapRouteError
 import opsi.sman35jkt.gathra.feature.map.MapRouteTestTags
-import opsi.sman35jkt.gathra.feature.map.FloodDataStatus
+import opsi.sman35jkt.gathra.feature.map.FloodRefreshStatus
 import opsi.sman35jkt.gathra.feature.map.FloodRouteSyncState
 
 @Composable
@@ -60,7 +60,7 @@ fun RouteBottomSheetContent(
     routeError: MapRouteError?,
     routes: List<RouteOption>,
     selectedRouteId: String?,
-    floodDataStatus: FloodDataStatus = FloodDataStatus.UNAVAILABLE,
+    floodRefreshStatus: FloodRefreshStatus = FloodRefreshStatus.UNAVAILABLE,
     floodRouteSyncState: FloodRouteSyncState = FloodRouteSyncState.NOT_EVALUATED,
     isLoadingFloodHazards: Boolean = false,
     riskIsCurrent: Boolean = false,
@@ -123,7 +123,7 @@ fun RouteBottomSheetContent(
         )
 
         FloodStatusContent(
-            dataStatus = floodDataStatus,
+            refreshStatus = floodRefreshStatus,
             routeSyncState = floodRouteSyncState,
             hasRoute = selectedRoute != null,
             isLoadingFloodHazards = isLoadingFloodHazards,
@@ -566,7 +566,7 @@ internal fun FloodRiskBadge(
 
 @Composable
 private fun FloodStatusContent(
-    dataStatus: FloodDataStatus,
+    refreshStatus: FloodRefreshStatus,
     routeSyncState: FloodRouteSyncState,
     hasRoute: Boolean,
     isLoadingFloodHazards: Boolean,
@@ -576,7 +576,7 @@ private fun FloodStatusContent(
     if (
         !hasRoute &&
         isLoadingFloodHazards &&
-        dataStatus == FloodDataStatus.UNAVAILABLE
+        refreshStatus == FloodRefreshStatus.UNAVAILABLE
     ) {
         return
     }
@@ -594,12 +594,12 @@ private fun FloodStatusContent(
             false,
             onFloodRouteRetry,
         )
-        dataStatus == FloodDataStatus.STALE -> Triple(
+        refreshStatus == FloodRefreshStatus.RETAINED_AFTER_ERROR -> Triple(
             R.string.flood_data_stale,
             false,
             onFloodRefresh,
         )
-        dataStatus == FloodDataStatus.UNAVAILABLE -> Triple(
+        refreshStatus == FloodRefreshStatus.UNAVAILABLE -> Triple(
             R.string.flood_data_unavailable,
             false,
             onFloodRefresh,

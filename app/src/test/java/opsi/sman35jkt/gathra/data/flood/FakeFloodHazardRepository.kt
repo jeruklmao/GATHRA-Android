@@ -59,6 +59,9 @@ class FakeFloodHazardRepository(
                     validUntilEpochMillis = validUntil,
                     source = FloodHazardSource.SIMULATED,
                     sourceNodeIds = listOf("fake_node_01"),
+                    routingMultiplier = 1.0,
+                    reasonCodes = emptyList(),
+                    freshness = null,
                 ),
                 FloodHazardPolygon(
                     id = "fake_hazard_high_01",
@@ -78,6 +81,9 @@ class FakeFloodHazardRepository(
                     validUntilEpochMillis = validUntil,
                     source = FloodHazardSource.SIMULATED,
                     sourceNodeIds = listOf("fake_node_02", "fake_node_03"),
+                    routingMultiplier = 0.05,
+                    reasonCodes = emptyList(),
+                    freshness = null,
                 ),
                 FloodHazardPolygon(
                     id = "fake_hazard_user_custom_01",
@@ -97,6 +103,9 @@ class FakeFloodHazardRepository(
                     validUntilEpochMillis = validUntil,
                     source = FloodHazardSource.SIMULATED,
                     sourceNodeIds = listOf("fake_node_user_01"),
+                    routingMultiplier = 0.05,
+                    reasonCodes = emptyList(),
+                    freshness = null,
                 ),
             )
         }

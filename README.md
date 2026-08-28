@@ -18,12 +18,13 @@ never connects to either provider directly.
   prompts, and a location foreground service.
 - Photon-backed autocomplete, search, place lookup, and reverse geocoding for
   the configured Jakarta–Tangerang pilot region.
-- Simulated flood polygons, route-risk metadata, snapshot synchronization, and
-  blocked-route rejection.
+- Sensor-backed flood coverage polygons, route-risk metadata, snapshot
+  synchronization, and runtime-multiplier route exclusion.
 
-Flood information is simulated and stored only in backend memory. It is not
-live sensor data, does not survive a backend restart, and must not be treated
-as proof that a route is safe.
+Production flood observations come from Protocol 3 Nodes through the Gateway
+and PostgreSQL-backed Backend classifier. The public hazard API remains a
+modeled observation, not proof that an area or route is safe. Explicit local
+simulation remains supported for deterministic development.
 
 ## Architecture
 
@@ -32,8 +33,26 @@ Android (MapLibre, Compose, MVVM)
   -> HTTPS NestJS API
      -> private GraphHopper 11 routing
      -> private Photon 0.5.0 geocoding
-     -> in-memory simulated FloodHazardProvider
+     -> PostgreSQL sensor telemetry + flood classification
 ```
+
+The production flood path is:
+
+```text
+GATHRA Node 2.1.1 (LoRa Protocol 3)
+  -> GATHRA Gateway 2.2.0
+  -> Backend PostgreSQL telemetry
+  -> sensor classification
+  -> public /api/v1/flood-hazards
+  -> GraphHopper routing + Android
+```
+
+Android preserves the Backend-provided risk, sensor freshness, reason codes,
+nullable observation/validity timestamps, provenance Node IDs, and runtime
+routing multiplier. `UNKNOWN` means the current condition cannot be
+determined; it never means LOW or safe. A successful HTTP refresh is separate
+from sensor freshness, so a valid response can contain `STALE` or
+`NO_TELEMETRY` polygons.
 
 The Android app is one Gradle module with immutable UI state, StateFlow, typed
 actions/effects, provider-neutral domain repositories, and a manual
@@ -63,8 +82,8 @@ documented in [docs/development.md](docs/development.md).
 
 The API is maintained independently in
 [JerukLMAO/GATHRA-Backend](https://github.com/JerukLMAO/GATHRA-Backend).
-Its README owns local stack setup, routing and geocoding data, API contracts,
-flood simulation, and backend quality checks.
+Its README owns local stack setup, routing and geocoding data, sensor flood
+contracts, explicit flood simulation, and backend quality checks.
 
 ## Documentation
 

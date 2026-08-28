@@ -18,6 +18,7 @@ import org.junit.Rule
 import org.junit.Test
 import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
 import opsi.sman35jkt.gathra.core.model.FloodHazardLevel
+import opsi.sman35jkt.gathra.core.model.FloodHazardFreshness
 import opsi.sman35jkt.gathra.core.model.FloodHazardPolygon
 import opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot
 import opsi.sman35jkt.gathra.core.model.FloodHazardSource
@@ -177,6 +178,9 @@ class MapRouteScreenTest {
                         validUntilEpochMillis = 2_000L,
                         source = FloodHazardSource.UNKNOWN,
                         sourceNodeIds = emptyList(),
+                        routingMultiplier = 1.0,
+                        reasonCodes = emptyList(),
+                        freshness = FloodHazardFreshness.FRESH,
                     ),
                     onDismiss = {},
                 )
@@ -185,7 +189,9 @@ class MapRouteScreenTest {
 
         composeRule.onNodeWithText("Risiko belum diketahui")
             .assertIsDisplayed()
-        composeRule.onNodeWithText("Tingkat risiko tidak diketahui.")
+        composeRule.onNodeWithText(
+            "Kondisi banjir di area ini belum dapat ditentukan dari data yang tersedia.",
+        )
             .assertIsDisplayed()
         composeRule.onNodeWithText("Risiko banjir rendah")
             .assertDoesNotExist()
@@ -267,7 +273,7 @@ class MapRouteScreenTest {
                 source = FloodHazardSource.SIMULATED,
                 hazards = emptyList(),
             ),
-            floodDataStatus = FloodDataStatus.FRESH,
+            floodRefreshStatus = FloodRefreshStatus.SUCCEEDED,
             floodRouteSyncState = FloodRouteSyncState.SYNCHRONIZED,
         )
     }

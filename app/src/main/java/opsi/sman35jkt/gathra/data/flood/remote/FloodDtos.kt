@@ -19,6 +19,12 @@ data class FloodHazardPropertiesDto(
     val source: String? = null,
     @SerialName("sourceNodeIds")
     val sourceNodeIds: List<String>? = null,
+    @SerialName("routingMultiplier")
+    val routingMultiplier: Double? = null,
+    @SerialName("reasonCodes")
+    val reasonCodes: List<String>? = null,
+    @SerialName("freshness")
+    val freshness: String? = null,
 )
 
 @Serializable
