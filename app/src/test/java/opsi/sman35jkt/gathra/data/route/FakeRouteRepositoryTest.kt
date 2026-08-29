@@ -1,7 +1,7 @@
 package opsi.sman35jkt.gathra.data.route
 
 import kotlinx.coroutines.runBlocking
-import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
+import opsi.sman35jkt.gathra.core.map.TestRoutePoints
 import opsi.sman35jkt.gathra.core.model.RouteRequest
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import org.junit.Assert.assertEquals
@@ -13,8 +13,8 @@ import org.junit.Test
 class FakeRouteRepositoryTest {
 
     private val carRequest = RouteRequest(
-        origin = JakartaDemoPoints.origin,
-        destination = JakartaDemoPoints.suggestedDestination,
+        origin = TestRoutePoints.origin,
+        destination = TestRoutePoints.destination,
         travelMode = TravelMode.CAR,
     )
 

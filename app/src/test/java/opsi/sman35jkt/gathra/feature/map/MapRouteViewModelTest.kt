@@ -12,7 +12,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import opsi.sman35jkt.gathra.core.location.LocationLookupResult
 import opsi.sman35jkt.gathra.core.location.LocationRepository
-import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
+import opsi.sman35jkt.gathra.core.map.TestRoutePoints
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.RouteRequest
@@ -41,12 +41,11 @@ class MapRouteViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun `starts with Jakarta fallback origin and an empty destination`() = runTest {
+    fun `starts without a seeded origin or destination`() = runTest {
         val viewModel = createViewModel()
 
         val state = viewModel.uiState.value
-        assertEquals(JakartaDemoPoints.origin, state.origin?.point)
-        assertEquals(SelectionPointSource.DEMO_FALLBACK, state.origin?.source)
+        assertEquals(null, state.origin)
         assertEquals(null, state.destination)
         assertEquals(TravelMode.CAR, state.selectedTravelMode)
         assertEquals(RouteContentState.EMPTY, state.routeContentState)
@@ -82,7 +81,7 @@ class MapRouteViewModelTest {
         selectPoint(
             viewModel = viewModel,
             mode = PointSelectionMode.DESTINATION,
-            point = JakartaDemoPoints.suggestedDestination,
+            point = TestRoutePoints.destination,
         )
         advanceUntilIdle()
         val carEta = requireNotNull(viewModel.uiState.value.selectedRoute).summary.etaMinutes
@@ -106,7 +105,7 @@ class MapRouteViewModelTest {
         selectPoint(
             viewModel = viewModel,
             mode = PointSelectionMode.DESTINATION,
-            point = JakartaDemoPoints.suggestedDestination,
+            point = TestRoutePoints.destination,
         )
         advanceUntilIdle()
         val originalOrigin = requireNotNull(viewModel.uiState.value.origin)
@@ -128,7 +127,7 @@ class MapRouteViewModelTest {
         selectPoint(
             viewModel = viewModel,
             mode = PointSelectionMode.DESTINATION,
-            point = JakartaDemoPoints.suggestedDestination,
+            point = TestRoutePoints.destination,
         )
         advanceUntilIdle()
 
@@ -159,7 +158,7 @@ class MapRouteViewModelTest {
         selectPoint(
             viewModel = viewModel,
             mode = PointSelectionMode.DESTINATION,
-            point = JakartaDemoPoints.suggestedDestination,
+            point = TestRoutePoints.destination,
         )
         advanceUntilIdle()
 
@@ -185,7 +184,7 @@ class MapRouteViewModelTest {
         selectPoint(
             viewModel = viewModel,
             mode = PointSelectionMode.DESTINATION,
-            point = JakartaDemoPoints.suggestedDestination,
+            point = TestRoutePoints.destination,
         )
         advanceUntilIdle()
 
@@ -210,7 +209,7 @@ class MapRouteViewModelTest {
         selectPoint(
             viewModel = viewModel,
             mode = PointSelectionMode.DESTINATION,
-            point = JakartaDemoPoints.suggestedDestination,
+            point = TestRoutePoints.destination,
         )
         repository.firstRequestStarted.await()
 
@@ -232,7 +231,7 @@ class MapRouteViewModelTest {
     }
 
     @Test
-    fun `permission denial retains fallback and still permits demo routing`() = runTest {
+    fun `permission denial leaves startup unseeded and manual selection still permits routing`() = runTest {
         val repository = RecordingRouteRepository()
         val viewModel = createViewModel(repository)
 
@@ -247,16 +246,10 @@ class MapRouteViewModelTest {
             LocationPermissionState.DENIED,
             viewModel.uiState.value.locationPermissionState,
         )
-        assertEquals(JakartaDemoPoints.origin, viewModel.uiState.value.origin?.point)
-        assertEquals(
-            SelectionPointSource.DEMO_FALLBACK,
-            viewModel.uiState.value.origin?.source,
-        )
-
         selectPoint(
             viewModel = viewModel,
             mode = PointSelectionMode.DESTINATION,
-            point = JakartaDemoPoints.suggestedDestination,
+            point = TestRoutePoints.destination,
         )
         advanceUntilIdle()
 
@@ -270,7 +263,7 @@ class MapRouteViewModelTest {
         selectPoint(
             viewModel = viewModel,
             mode = PointSelectionMode.DESTINATION,
-            point = JakartaDemoPoints.suggestedDestination,
+            point = TestRoutePoints.destination,
         )
         advanceUntilIdle()
         viewModel.onAction(
@@ -292,7 +285,7 @@ class MapRouteViewModelTest {
         assertEquals(
             MapRouteEffect.StartNavigation(
                 route = selectedRoute,
-                destination = JakartaDemoPoints.suggestedDestination,
+                destination = TestRoutePoints.destination,
                 travelMode = TravelMode.CAR,
             ),
             effect.await(),
@@ -305,7 +298,7 @@ class MapRouteViewModelTest {
         selectPoint(
             viewModel = viewModel,
             mode = PointSelectionMode.DESTINATION,
-            point = JakartaDemoPoints.suggestedDestination,
+            point = TestRoutePoints.destination,
         )
         advanceUntilIdle()
 
@@ -368,6 +361,9 @@ class MapRouteViewModelTest {
         mode: PointSelectionMode,
         point: GeoPoint,
     ) {
+        if (mode == PointSelectionMode.DESTINATION && viewModel.uiState.value.origin == null) {
+            selectPoint(viewModel, PointSelectionMode.ORIGIN, TestRoutePoints.origin)
+        }
         viewModel.onAction(MapRouteAction.StartPointSelection(mode))
         viewModel.onAction(MapRouteAction.MapPointTapped(point))
         viewModel.onAction(MapRouteAction.ConfirmPointSelection)

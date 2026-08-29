@@ -13,7 +13,7 @@ sealed interface MapRouteEffect {
 
     data class OpenPlaceSearch(
         val mode: PointSelectionMode,
-        val proximity: GeoPoint,
+        val proximity: GeoPoint?,
     ) : MapRouteEffect
 
     data class StartNavigation(

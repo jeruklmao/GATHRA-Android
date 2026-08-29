@@ -5,7 +5,7 @@
     <string name="origin_label">Titik awal</string>
     <string name="destination_label">Tujuan</string>
     <string name="current_location">Lokasi saat ini</string>
-    <string name="jakarta_demo_location">Titik awal demo Jakarta</string>
+    <string name="gathra_logo_description">Logo GATHRA</string>
     <string name="choose_origin_on_map">Pilih titik awal di peta</string>
     <string name="choose_destination_on_map">Pilih tujuan di peta</string>
     <string name="coordinate_label">%1$.4f, %2$.4f</string>
@@ -87,21 +87,21 @@
 
     <string name="current_location_button">Gunakan lokasi saat ini</string>
     <string name="current_location_locating">Mencari lokasi saat ini</string>
-    <string name="current_location_unavailable">Lokasi saat ini belum tersedia. Titik demo tetap digunakan.</string>
+    <string name="current_location_unavailable">Lokasi saat ini belum tersedia. Pilih titik secara manual di peta atau coba lagi.</string>
     <string name="location_services_disabled">Layanan lokasi tidak aktif. Anda tetap dapat memilih titik pada peta.</string>
     <string name="map_style_unavailable">Peta dasar belum dapat dimuat. Periksa koneksi internet dan coba lagi.</string>
 
     <string name="permission_rationale_title">Gunakan lokasi Anda?</string>
-    <string name="permission_rationale_body">GATHRA memakai lokasi hanya saat aplikasi terbuka untuk menentukan titik awal. Anda tetap dapat memakai titik demo Jakarta atau memilih titik secara manual.</string>
+    <string name="permission_rationale_body">GATHRA memakai lokasi hanya saat aplikasi terbuka untuk menentukan titik awal. Jika lokasi belum tersedia, Anda dapat memilih titik secara manual di peta.</string>
     <string name="navigation_permission_rationale_body">GATHRA memerlukan lokasi langsung selama sesi navigasi aktif untuk menghitung kemajuan, mendeteksi penyimpangan, dan memberi petunjuk berikutnya. Lokasi berhenti digunakan saat navigasi dihentikan.</string>
     <string name="permission_continue">Lanjutkan</string>
     <string name="permission_not_now">Nanti saja</string>
-    <string name="permission_denied_notice">Izin lokasi ditolak. Mode demo Jakarta tetap aktif.</string>
+    <string name="permission_denied_notice">Izin lokasi ditolak. Anda tetap dapat memilih titik secara manual di peta.</string>
     <string name="permission_approximate_notice">Lokasi perkiraan digunakan sebagai titik awal.</string>
     <string name="permission_permanently_denied_title">Izin lokasi dinonaktifkan</string>
-    <string name="permission_permanently_denied_body">Aktifkan izin lokasi dari pengaturan aplikasi, atau lanjutkan dengan titik demo dan pilihan manual.</string>
+    <string name="permission_permanently_denied_body">Aktifkan izin lokasi dari pengaturan aplikasi, atau lanjutkan dengan memilih titik secara manual di peta.</string>
     <string name="open_settings">Buka pengaturan</string>
-    <string name="continue_demo">Lanjutkan mode demo</string>
+    <string name="continue_without_location">Lanjut tanpa lokasi</string>
 
     <string name="map_accessibility">Peta interaktif GATHRA. Ketuk area berwarna untuk membuka kondisi banjir, atau ketuk peta saat memilih titik.</string>
 

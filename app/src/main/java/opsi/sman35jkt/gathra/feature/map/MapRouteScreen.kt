@@ -320,11 +320,6 @@ private fun routePointLabel(
     point.displayName?.takeIf { it.isNotBlank() }?.let { return it }
     return when (point.source) {
         SelectionPointSource.CURRENT_LOCATION -> stringResource(R.string.current_location)
-        SelectionPointSource.DEMO_FALLBACK -> if (isOrigin) {
-            stringResource(R.string.jakarta_demo_location)
-        } else {
-            coordinateLabel(point)
-        }
         SelectionPointSource.MAP_SELECTION,
         SelectionPointSource.GEOCODING_SEARCH,
         -> coordinateLabel(point)

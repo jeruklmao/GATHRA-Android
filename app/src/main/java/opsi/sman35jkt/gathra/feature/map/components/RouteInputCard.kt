@@ -1,5 +1,6 @@
 package opsi.sman35jkt.gathra.feature.map.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -41,7 +44,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import opsi.sman35jkt.gathra.R
 import opsi.sman35jkt.gathra.feature.map.MapRouteTestTags
-import androidx.compose.ui.platform.testTag
 
 @Composable
 fun RouteInputCard(
@@ -70,13 +72,23 @@ fun RouteInputCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.brand_route_label),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
+                Row(
                     modifier = Modifier.padding(start = 40.dp, bottom = 4.dp),
-                )
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.gathra_logo),
+                        contentDescription = stringResource(R.string.gathra_logo_description),
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.brand_route_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
                 RoutePointRow(
                     icon = Icons.Rounded.TripOrigin,
                     title = stringResource(R.string.origin_label),

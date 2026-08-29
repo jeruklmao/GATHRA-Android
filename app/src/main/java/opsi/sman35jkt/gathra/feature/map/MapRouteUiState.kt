@@ -12,7 +12,7 @@ import opsi.sman35jkt.gathra.domain.sensor.SensorCurrentState
  * Immutable state rendered by the route-preview screen.
  *
  * Permission and location lookup state are intentionally independent from route loading state so
- * that the Jakarta fallback remains usable when foreground location cannot be obtained.
+ * that manual map selection remains usable when foreground location cannot be obtained.
  */
 data class MapRouteUiState(
     val origin: RouteSelectionPoint? = null,

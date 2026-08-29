@@ -16,7 +16,6 @@ import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
-import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
 import opsi.sman35jkt.gathra.core.model.FloodHazardLevel
 import opsi.sman35jkt.gathra.core.model.FloodHazardFreshness
 import opsi.sman35jkt.gathra.core.model.FloodHazardPolygon
@@ -224,12 +223,14 @@ class MapRouteScreenTest {
     private fun readyState(
         riskLevel: FloodRiskLevel = FloodRiskLevel.LOW,
     ): MapRouteUiState {
-        val destination = JakartaDemoPoints.suggestedDestination
+        // These coordinates are deterministic test data, not a production startup point.
+        val origin = GeoPoint(-6.2000, 106.8167)
+        val destination = GeoPoint(-6.1754, 106.8272)
         val risk = routeRisk(riskLevel)
         val route = RouteOption(
             id = "selected",
             geometry = RouteGeometry(
-                points = listOf(JakartaDemoPoints.origin, destination),
+                points = listOf(origin, destination),
             ),
             summary = RouteSummary(
                 distanceMeters = 5_200,
@@ -242,7 +243,7 @@ class MapRouteScreenTest {
             id = "alternative",
             geometry = RouteGeometry(
                 points = listOf(
-                    JakartaDemoPoints.origin,
+                    origin,
                     GeoPoint(-6.19, 106.83),
                     destination,
                 ),
@@ -255,8 +256,8 @@ class MapRouteScreenTest {
         )
         return MapRouteUiState(
             origin = RouteSelectionPoint(
-                point = JakartaDemoPoints.origin,
-                source = SelectionPointSource.DEMO_FALLBACK,
+                point = origin,
+                source = SelectionPointSource.MAP_SELECTION,
             ),
             destination = RouteSelectionPoint(
                 point = destination,

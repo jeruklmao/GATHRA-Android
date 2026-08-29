@@ -51,6 +51,7 @@ import opsi.sman35jkt.gathra.feature.map.MapRouteError
 import opsi.sman35jkt.gathra.feature.map.MapRouteTestTags
 import opsi.sman35jkt.gathra.feature.map.FloodRefreshStatus
 import opsi.sman35jkt.gathra.feature.map.FloodRouteSyncState
+import opsi.sman35jkt.gathra.ui.theme.GathraTheme
 
 @Composable
 fun RouteBottomSheetContent(
@@ -104,8 +105,8 @@ fun RouteBottomSheetContent(
                 )
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 ) {
                     Text(
                         text = stringResource(R.string.route_data_badge),
@@ -489,36 +490,37 @@ internal fun FloodRiskBadge(
     level: FloodRiskLevel?,
     modifier: Modifier = Modifier,
 ) {
+    val floodColors = GathraTheme.floodColors
     val (labelRes, containerColor, contentColor) = when (level) {
         FloodRiskLevel.LOW -> Triple(
             R.string.flood_risk_low,
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer,
+            floodColors.lowContainer,
+            floodColors.lowContent,
         )
         FloodRiskLevel.MEDIUM -> Triple(
             R.string.flood_risk_medium,
-            MaterialTheme.colorScheme.secondaryContainer,
-            MaterialTheme.colorScheme.onSecondaryContainer,
+            floodColors.mediumContainer,
+            floodColors.mediumContent,
         )
         FloodRiskLevel.HIGH -> Triple(
             R.string.flood_risk_high,
-            MaterialTheme.colorScheme.errorContainer,
-            MaterialTheme.colorScheme.onErrorContainer,
+            floodColors.highContainer,
+            floodColors.highContent,
         )
         FloodRiskLevel.BLOCKED -> Triple(
             R.string.flood_risk_blocked,
-            MaterialTheme.colorScheme.error,
-            MaterialTheme.colorScheme.onError,
+            floodColors.blockedContainer,
+            floodColors.blockedContent,
         )
         FloodRiskLevel.UNKNOWN -> Triple(
             R.string.flood_risk_unknown,
-            MaterialTheme.colorScheme.surfaceVariant,
-            MaterialTheme.colorScheme.onSurfaceVariant,
+            floodColors.unknownContainer,
+            floodColors.unknownContent,
         )
         FloodRiskLevel.NOT_EVALUATED, null -> Triple(
             R.string.flood_risk_not_evaluated,
-            MaterialTheme.colorScheme.surfaceVariant,
-            MaterialTheme.colorScheme.onSurfaceVariant,
+            floodColors.unknownContainer,
+            floodColors.unknownContent,
         )
     }
     val statusIcon = when (level) {

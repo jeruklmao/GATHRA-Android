@@ -221,8 +221,9 @@ only in-memory data with its original measurement time.
 
 The first usable SENSOR coverage polygon is fit once from geometry bounds with
 padding. Later flood/sensor/Gateway refreshes never recenter it, and user or
-route/navigation camera ownership cancels the initial fit. The Jakarta camera
-is retained only as the no-geometry/network fallback.
+route/navigation camera ownership cancels the initial fit. A broad neutral
+technical camera is used only while no backend geometry is available; it is not
+presented as a real location or marker.
 
 Android displays authoritative water height/effective risk, accepted distance,
 temperature/humidity, Backend-derived heartbeat state, recent radio reception,

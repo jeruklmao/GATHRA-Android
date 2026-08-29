@@ -253,11 +253,11 @@ private class MapRouteRenderer(
             readyMap.cameraPosition = CameraPosition.Builder()
                 .target(
                     LatLng(
-                        MapStyleConfig.INITIAL_JAKARTA_LATITUDE,
-                        MapStyleConfig.INITIAL_JAKARTA_LONGITUDE,
+                        MapStyleConfig.INITIAL_FALLBACK_LATITUDE,
+                        MapStyleConfig.INITIAL_FALLBACK_LONGITUDE,
                     ),
                 )
-                .zoom(MapStyleConfig.INITIAL_ZOOM)
+                .zoom(MapStyleConfig.INITIAL_FALLBACK_ZOOM)
                 .build()
 
             val clickListener = MapLibreMap.OnMapClickListener { coordinate ->

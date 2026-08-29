@@ -34,6 +34,10 @@ class SensorMapFeatureTest {
         val snapshot = snapshot()
         val first = gate.claim(snapshot, cameraOwnedByRoute = false)
         assertEquals(3, first?.size)
+        assertEquals(
+            snapshot.hazards.single().rings.flatten().distinct(),
+            first,
+        )
         assertNull(gate.claim(snapshot.copy(snapshotId = "sensor-refresh"), false))
         assertNull(gate.claim(snapshot.copy(snapshotId = "gateway-refresh"), false))
         assertTrue(first!!.none { it == GeoPoint(-6.2, 106.8) })

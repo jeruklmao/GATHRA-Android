@@ -6,7 +6,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import opsi.sman35jkt.gathra.core.location.LocationLookupResult
 import opsi.sman35jkt.gathra.core.location.LocationRepository
-import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
+import opsi.sman35jkt.gathra.core.map.TestRoutePoints
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.PlaceCategory
 import opsi.sman35jkt.gathra.core.model.PlaceSuggestion
@@ -37,6 +37,11 @@ class MapRouteGeocodingViewModelTest {
         val routeRepository = RecordingRouteRepository()
         val viewModel = viewModel(routeRepository = routeRepository)
         val place = selectedPlace()
+        viewModel.onAction(
+            MapRouteAction.StartPointSelection(PointSelectionMode.ORIGIN),
+        )
+        viewModel.onAction(MapRouteAction.MapPointTapped(TestRoutePoints.origin))
+        viewModel.onAction(MapRouteAction.ConfirmPointSelection)
 
         viewModel.onAction(
             MapRouteAction.PlaceSelected(
@@ -134,7 +139,7 @@ class MapRouteGeocodingViewModelTest {
             SelectionPointSource.CURRENT_LOCATION,
             viewModel.uiState.value.destination?.source,
         )
-        assertEquals(JakartaDemoPoints.origin, viewModel.uiState.value.origin?.point)
+        assertEquals(null, viewModel.uiState.value.origin?.point)
     }
 
     private fun viewModel(
@@ -157,6 +162,12 @@ class MapRouteGeocodingViewModelTest {
         viewModel: MapRouteViewModel,
         point: GeoPoint,
     ) {
+        // Route tests need an explicit origin now that production startup is unseeded.
+        viewModel.onAction(
+            MapRouteAction.StartPointSelection(PointSelectionMode.ORIGIN),
+        )
+        viewModel.onAction(MapRouteAction.MapPointTapped(TestRoutePoints.origin))
+        viewModel.onAction(MapRouteAction.ConfirmPointSelection)
         viewModel.onAction(
             MapRouteAction.StartPointSelection(
                 PointSelectionMode.DESTINATION,

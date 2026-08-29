@@ -12,7 +12,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import opsi.sman35jkt.gathra.core.location.LocationLookupResult
 import opsi.sman35jkt.gathra.core.location.LocationRepository
-import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
+import opsi.sman35jkt.gathra.core.map.TestRoutePoints
 import opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot
 import opsi.sman35jkt.gathra.core.model.FloodHazardFreshness
 import opsi.sman35jkt.gathra.core.model.FloodHazardLevel
@@ -329,11 +329,19 @@ class MapRouteFloodSafetyViewModelTest {
     }
 
     private fun selectDestination(viewModel: MapRouteViewModel) {
+        // This is explicit deterministic test setup; production has no seeded origin.
+        viewModel.onAction(
+            MapRouteAction.StartPointSelection(PointSelectionMode.ORIGIN),
+        )
+        viewModel.onAction(
+            MapRouteAction.MapPointTapped(TestRoutePoints.origin),
+        )
+        viewModel.onAction(MapRouteAction.ConfirmPointSelection)
         viewModel.onAction(
             MapRouteAction.StartPointSelection(PointSelectionMode.DESTINATION),
         )
         viewModel.onAction(
-            MapRouteAction.MapPointTapped(JakartaDemoPoints.suggestedDestination),
+            MapRouteAction.MapPointTapped(TestRoutePoints.destination),
         )
         viewModel.onAction(MapRouteAction.ConfirmPointSelection)
     }

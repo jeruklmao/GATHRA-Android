@@ -20,7 +20,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import opsi.sman35jkt.gathra.core.location.LocationLookupResult
 import opsi.sman35jkt.gathra.core.location.LocationRepository
-import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
 import opsi.sman35jkt.gathra.core.model.GeoBounds
 import opsi.sman35jkt.gathra.core.model.RouteRequest
 import opsi.sman35jkt.gathra.core.model.RouteSelectionPoint
@@ -57,14 +56,7 @@ class MapRouteViewModel(
     private val floodRefreshConfig: FloodRefreshConfig = FloodRefreshConfig(),
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(
-        MapRouteUiState(
-            origin = RouteSelectionPoint(
-                point = JakartaDemoPoints.origin,
-                source = SelectionPointSource.DEMO_FALLBACK,
-            ),
-        ),
-    )
+    private val _uiState = MutableStateFlow(MapRouteUiState())
     val uiState: StateFlow<MapRouteUiState> = _uiState.asStateFlow()
 
     private val _effects = MutableSharedFlow<MapRouteEffect>(extraBufferCapacity = 4)
@@ -401,7 +393,7 @@ class MapRouteViewModel(
                 mode = mode,
                 proximity = _uiState.value.currentLocationPoint
                     ?: _uiState.value.origin?.point
-                    ?: JakartaDemoPoints.origin,
+                    ?: _uiState.value.destination?.point,
             ),
         )
     }
@@ -796,7 +788,7 @@ class MapRouteViewModel(
             action.permanentlyDenied -> LocationPermissionState.PERMANENTLY_DENIED
             else -> LocationPermissionState.DENIED
         }
-        val shouldRestoreDemoOrigin =
+        val shouldClearCurrentLocation =
             permissionState != LocationPermissionState.PRECISE &&
                 permissionState != LocationPermissionState.APPROXIMATE &&
                 _uiState.value.origin?.source == SelectionPointSource.CURRENT_LOCATION
@@ -805,11 +797,8 @@ class MapRouteViewModel(
                 locationPermissionState = permissionState,
                 isPermissionRationaleVisible = false,
                 isNavigationPermissionRequest = false,
-                origin = if (shouldRestoreDemoOrigin) {
-                    RouteSelectionPoint(
-                        point = JakartaDemoPoints.origin,
-                        source = SelectionPointSource.DEMO_FALLBACK,
-                    )
+                origin = if (shouldClearCurrentLocation) {
+                    null
                 } else {
                     it.origin
                 },
@@ -827,7 +816,7 @@ class MapRouteViewModel(
             }
         } else {
             cancelPendingLocationLookup()
-            if (shouldRestoreDemoOrigin) {
+            if (shouldClearCurrentLocation) {
                 calculateRoutes()
             }
         }

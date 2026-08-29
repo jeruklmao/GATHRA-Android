@@ -52,7 +52,7 @@ private const val LOCATION_PERMISSION_REQUESTED = "foreground_requested"
 fun MapRouteRoute(
     viewModel: MapRouteViewModel,
     onStartNavigation: (RouteOption, GeoPoint, TravelMode) -> Boolean,
-    onOpenPlaceSearch: (PointSelectionMode, GeoPoint) -> Unit,
+    onOpenPlaceSearch: (PointSelectionMode, GeoPoint?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -405,7 +405,7 @@ fun MapRouteRoute(
             },
             dismissButton = {
                 TextButton(onClick = { permanentDialogDismissed = true }) {
-                    Text(stringResource(R.string.continue_demo))
+                    Text(stringResource(R.string.continue_without_location))
                 }
             },
         )

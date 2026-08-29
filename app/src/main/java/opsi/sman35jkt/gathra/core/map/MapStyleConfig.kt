@@ -10,7 +10,10 @@ package opsi.sman35jkt.gathra.core.map
 object MapStyleConfig {
     const val PUBLIC_STYLE_URI = "https://tiles.openfreemap.org/styles/liberty"
 
-    const val INITIAL_JAKARTA_LATITUDE = -6.2000
-    const val INITIAL_JAKARTA_LONGITUDE = 106.8167
-    const val INITIAL_ZOOM = 12.0
+    // MapLibre needs a camera before backend geometry is available. This is a
+    // non-user-visible technical fallback; production startup is fitted to the
+    // first backend SENSOR polygon by InitialFloodCameraPolicy.
+    const val INITIAL_FALLBACK_LATITUDE = 0.0
+    const val INITIAL_FALLBACK_LONGITUDE = 0.0
+    const val INITIAL_FALLBACK_ZOOM = 1.5
 }

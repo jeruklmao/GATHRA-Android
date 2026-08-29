@@ -2,64 +2,99 @@ package opsi.sman35jkt.gathra.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-internal val ViridianLight = Color(0xFF006B5C)
-internal val OnViridianLight = Color(0xFFFFFFFF)
-internal val ViridianContainerLight = Color(0xFF77F8DC)
-internal val OnViridianContainerLight = Color(0xFF00201A)
-internal val VioletLight = Color(0xFF615B7B)
-internal val OnVioletLight = Color(0xFFFFFFFF)
-internal val VioletContainerLight = Color(0xFFE7DEFF)
-internal val OnVioletContainerLight = Color(0xFF1D1734)
-internal val AmberLight = Color(0xFF7C5800)
-internal val OnAmberLight = Color(0xFFFFFFFF)
-internal val AmberContainerLight = Color(0xFFFFDEA2)
-internal val OnAmberContainerLight = Color(0xFF271900)
-internal val BackgroundLight = Color(0xFFF8FAF7)
-internal val OnBackgroundLight = Color(0xFF191C1B)
-internal val SurfaceLight = Color(0xFFF8FAF7)
-internal val SurfaceVariantLight = Color(0xFFDAE5E1)
-internal val OnSurfaceVariantLight = Color(0xFF3F4946)
-internal val OutlineLight = Color(0xFF6F7976)
+// Official GATHRA identity colors. Keep these values centralized so screens
+// consume Material roles instead of repeating brand literals.
+internal val GathraBlue = Color(0xFF44B5F8)
+internal val GathraOrange = Color(0xFFFF751F)
+internal val GathraWhite = Color(0xFFFFFFFF)
+internal val OnGathraBlue = Color(0xFF00344F)
+internal val OnGathraOrange = Color(0xFF4A1700)
+
+// Material tones used for identity text/icons on light surfaces. The supplied
+// brand colors remain the primary dark-theme and map/asset colors; these tones
+// preserve the same hue family while meeting normal text contrast in light UI.
+internal val GathraBlueLight = Color(0xFF006C9C)
+internal val GathraOrangeLight = Color(0xFFB84300)
+
+internal val GathraBlueContainerLight = Color(0xFFC8EAFE)
+internal val OnGathraBlueContainerLight = Color(0xFF001E2D)
+internal val GathraOrangeContainerLight = Color(0xFFFFDBC7)
+internal val OnGathraOrangeContainerLight = Color(0xFF351000)
+
+internal val GathraBlueContainerDark = Color(0xFF0A4D70)
+internal val OnGathraBlueContainerDark = Color(0xFFBDE7FF)
+internal val GathraOrangeContainerDark = Color(0xFF71300D)
+internal val OnGathraOrangeContainerDark = Color(0xFFFFDBC7)
+
+internal val BackgroundLight = Color(0xFFF7FAFC)
+internal val OnBackgroundLight = Color(0xFF182127)
+internal val SurfaceLight = Color(0xFFF7FAFC)
+internal val SurfaceVariantLight = Color(0xFFDDE7EC)
+internal val OnSurfaceVariantLight = Color(0xFF3F4D55)
+internal val OutlineLight = Color(0xFF6E7E87)
 internal val ErrorLight = Color(0xFFBA1A1A)
 
-internal val ViridianDark = Color(0xFF56DBC0)
-internal val OnViridianDark = Color(0xFF00382F)
-internal val ViridianContainerDark = Color(0xFF005144)
-internal val OnViridianContainerDark = Color(0xFF77F8DC)
-internal val VioletDark = Color(0xFFCBC2E8)
-internal val OnVioletDark = Color(0xFF322C4A)
-internal val VioletContainerDark = Color(0xFF494262)
-internal val OnVioletContainerDark = Color(0xFFE7DEFF)
-internal val AmberDark = Color(0xFFF8BD48)
-internal val OnAmberDark = Color(0xFF422C00)
-internal val AmberContainerDark = Color(0xFF5E4200)
-internal val OnAmberContainerDark = Color(0xFFFFDEA2)
-internal val BackgroundDark = Color(0xFF101412)
-internal val OnBackgroundDark = Color(0xFFE0E3E0)
-internal val SurfaceDark = Color(0xFF101412)
-internal val SurfaceVariantDark = Color(0xFF3F4946)
-internal val OnSurfaceVariantDark = Color(0xFFBEC9C5)
-internal val OutlineDark = Color(0xFF89938F)
+internal val BackgroundDark = Color(0xFF101820)
+internal val OnBackgroundDark = Color(0xFFE8F2F8)
+internal val SurfaceDark = Color(0xFF131F29)
+internal val SurfaceVariantDark = Color(0xFF293843)
+internal val OnSurfaceVariantDark = Color(0xFFBECED8)
+internal val OutlineDark = Color(0xFF8799A5)
 internal val ErrorDark = Color(0xFFFFB4AB)
 
-internal val RouteSelectedLight = Color(0xFF007D68)
-internal val RouteAlternativeLight = Color(0xFF746D91)
-internal val RouteCasingLight = Color(0xFFF7FFFC)
-internal val OriginMarkerLight = Color(0xFF006B5C)
-internal val DestinationMarkerLight = Color(0xFFB15D00)
-internal val PendingMarkerLight = Color(0xFF4D3F86)
-internal val RouteCompletedLight = Color(0xFF687873)
-internal val NavigationPuckLight = Color(0xFF006B5C)
-internal val NavigationAccuracyLight = Color(0x4D006B5C)
-internal val NavigationRawLocationLight = Color(0xFF8A4F00)
+// Warning/status roles remain separate from the GATHRA orange identity color.
+internal val AlertAmberLight = Color(0xFF815700)
+internal val OnAlertAmberLight = GathraWhite
+internal val AlertAmberContainerLight = Color(0xFFFFE1A8)
+internal val OnAlertAmberContainerLight = Color(0xFF291800)
+internal val AlertAmberDark = Color(0xFFF4BB4C)
+internal val OnAlertAmberDark = Color(0xFF402D00)
+internal val AlertAmberContainerDark = Color(0xFF604300)
+internal val OnAlertAmberContainerDark = Color(0xFFFFE1A8)
 
-internal val RouteSelectedDark = Color(0xFF4DE1BF)
-internal val RouteAlternativeDark = Color(0xFFC9BEF5)
-internal val RouteCasingDark = Color(0xFF143C34)
-internal val OriginMarkerDark = Color(0xFF56DBC0)
-internal val DestinationMarkerDark = Color(0xFFFFB86B)
-internal val PendingMarkerDark = Color(0xFFD0C3FF)
-internal val RouteCompletedDark = Color(0xFF91A39D)
-internal val NavigationPuckDark = Color(0xFF56DBC0)
-internal val NavigationAccuracyDark = Color(0x4D56DBC0)
-internal val NavigationRawLocationDark = Color(0xFFFFB86B)
+// Flood safety indicators deliberately stay independent from brand identity.
+internal val FloodLowContainerLight = Color(0xFFD8F3DC)
+internal val FloodLowContentLight = Color(0xFF0B3D1B)
+internal val FloodMediumContainerLight = Color(0xFFFFE8B0)
+internal val FloodMediumContentLight = Color(0xFF4A2C00)
+internal val FloodHighContainerLight = Color(0xFFFFDAD6)
+internal val FloodHighContentLight = Color(0xFF410002)
+internal val FloodBlockedLight = Color(0xFFBA1A1A)
+internal val FloodBlockedContentLight = GathraWhite
+internal val FloodUnknownContainerLight = Color(0xFFE3E7EA)
+internal val FloodUnknownContentLight = Color(0xFF263238)
+
+internal val FloodLowContainerDark = Color(0xFF1B5428)
+internal val FloodLowContentDark = Color(0xFFB8F2BE)
+internal val FloodMediumContainerDark = Color(0xFF684B00)
+internal val FloodMediumContentDark = Color(0xFFFFDEA6)
+internal val FloodHighContainerDark = Color(0xFF733532)
+internal val FloodHighContentDark = Color(0xFFFFDAD6)
+internal val FloodBlockedDark = Color(0xFFFFB4AB)
+internal val FloodBlockedContentDark = Color(0xFF690005)
+internal val FloodUnknownContainerDark = Color(0xFF36444D)
+internal val FloodUnknownContentDark = Color(0xFFDCE5EA)
+
+// Map route/marker tokens use the official colors for identity while retaining
+// neutral casing and completed-route treatments for legibility over map tiles.
+internal val RouteSelectedLight = GathraBlue
+internal val RouteAlternativeLight = GathraOrange
+internal val RouteCasingLight = Color(0xFF0B3E5A)
+internal val OriginMarkerLight = GathraBlue
+internal val DestinationMarkerLight = GathraOrange
+internal val PendingMarkerLight = GathraOrange
+internal val RouteCompletedLight = Color(0xFF687D89)
+internal val NavigationPuckLight = GathraBlue
+internal val NavigationAccuracyLight = Color(0x6644B5F8)
+internal val NavigationRawLocationLight = GathraOrange
+
+internal val RouteSelectedDark = GathraBlue
+internal val RouteAlternativeDark = GathraOrange
+internal val RouteCasingDark = Color(0xFF073149)
+internal val OriginMarkerDark = GathraBlue
+internal val DestinationMarkerDark = GathraOrange
+internal val PendingMarkerDark = GathraOrange
+internal val RouteCompletedDark = Color(0xFF718692)
+internal val NavigationPuckDark = GathraBlue
+internal val NavigationAccuracyDark = Color(0x6644B5F8)
+internal val NavigationRawLocationDark = GathraOrange

@@ -12,7 +12,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
-import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
+import opsi.sman35jkt.gathra.core.map.TestRoutePoints
 import opsi.sman35jkt.gathra.core.model.RouteRequest
 import opsi.sman35jkt.gathra.core.model.TravelMode
 import opsi.sman35jkt.gathra.domain.route.RouteFailureReason
@@ -170,8 +170,8 @@ class RemoteRouteRepositoryTest {
     }
 
     private fun routeRequest(mode: TravelMode = TravelMode.CAR) = RouteRequest(
-        origin = JakartaDemoPoints.origin,
-        destination = JakartaDemoPoints.suggestedDestination,
+        origin = TestRoutePoints.origin,
+        destination = TestRoutePoints.destination,
         travelMode = mode,
     )
 

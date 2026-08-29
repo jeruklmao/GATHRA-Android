@@ -1,11 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
-    <style name="Theme.GATHRA" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.GATHRA" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/gathra_surface_dark</item>
+    </style>
+
+    <style name="Theme.GATHRA.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/gathra_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_screen_gathra</item>
+        <item name="postSplashScreenTheme">@style/Theme.GATHRA</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
     </style>
 </resources>

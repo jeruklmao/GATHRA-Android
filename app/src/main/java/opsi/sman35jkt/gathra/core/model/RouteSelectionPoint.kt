@@ -4,7 +4,6 @@ enum class SelectionPointSource {
     CURRENT_LOCATION,
     MAP_SELECTION,
     GEOCODING_SEARCH,
-    DEMO_FALLBACK,
 }
 
 data class RouteSelectionPoint(
