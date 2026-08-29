@@ -241,6 +241,14 @@ Never enable the unauthenticated `/dev` surface on the public deployment.
 Android uses only the unauthenticated read-only flood endpoint; it must never
 embed flood-administrator or Gateway credentials.
 
+Also verify the public current `GET /api/v1/sensors/:nodeId`, Backend-coordinate
+marker, shared polygon/marker detail sheet, 30-second open-sheet refresh,
+pull-to-refresh, and one-shot initial polygon camera fit. Measurement age and
+application refresh time are different. Use deterministic fixtures—not
+production writes—for stale/unavailable states. The UI intentionally has no
+history/chart, raw distance, battery, filter/health detail, ACK metrics, or
+Gateway network/runtime internals.
+
 ## Android quality commands
 
 ```bash

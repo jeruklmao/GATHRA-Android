@@ -254,6 +254,31 @@
     <string name="flood_disclaimer_simulated_coverage">Area berwarna menunjukkan cakupan data simulasi. Kondisi di luar cakupan belum diketahui.</string>
     <string name="flood_disclaimer_coverage_incomplete">Cakupan data mungkin tidak lengkap. Kondisi di luar area berwarna belum diketahui.</string>
     <string name="flood_snapshot_updated">Data banjir telah diperbarui.</string>
+    <string name="sensor_detail_loading">Memuat informasi sensor saat ini…</string>
+    <string name="sensor_detail_unavailable">Informasi sensor saat ini belum tersedia.</string>
+    <string name="sensor_refresh_failed">Pembaruan gagal. Data yang terlihat mempertahankan waktu pengukuran aslinya.</string>
+    <string name="sensor_app_refresh_label">Terakhir diperbarui</string>
+    <string name="sensor_water_height">Ketinggian air</string>
+    <string name="sensor_accepted_distance">Jarak permukaan ke sensor</string>
+    <string name="sensor_node_label">Sensor</string>
+    <string name="sensor_location_label">Lokasi sensor</string>
+    <string name="sensor_environment_label">Lingkungan</string>
+    <string name="sensor_gateway_label">Koneksi Gateway</string>
+    <string name="sensor_heartbeat_label">Heartbeat</string>
+    <string name="sensor_radio_label">Radio Node → Gateway</string>
+    <string name="sensor_radio_measurements">Pengukuran radio</string>
+    <string name="sensor_delivery_label">Pengiriman ke server</string>
+    <string name="sensor_value_unavailable">Tidak tersedia</string>
+    <string name="gateway_online">Online</string>
+    <string name="gateway_stale">Tidak terbaru</string>
+    <string name="gateway_offline">Offline</string>
+    <string name="radio_recent">Baik</string>
+    <string name="delivery_normal">Normal</string>
+    <string name="delivery_degraded">Bermasalah</string>
+    <plurals name="sensor_seconds_ago"><item quantity="other">%1$d detik lalu</item></plurals>
+    <plurals name="sensor_minutes_ago"><item quantity="other">%1$d menit lalu</item></plurals>
+    <plurals name="sensor_hours_ago"><item quantity="other">%1$d jam lalu</item></plurals>
+    <plurals name="sensor_days_ago"><item quantity="other">%1$d hari lalu</item></plurals>
     <string name="flood_route_updating">Kondisi banjir berubah. Rute sedang diperbarui.</string>
     <string name="flood_route_update_failed">Rute belum diperbarui setelah perubahan kondisi banjir.</string>
     <string name="flood_data_stale">Data banjir terakhir tidak dapat diperbarui. Informasi yang terlihat mungkin sudah berubah.</string>

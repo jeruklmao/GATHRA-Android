@@ -12,6 +12,7 @@ import opsi.sman35jkt.gathra.data.route.remote.RouteNetworkFactory
 import opsi.sman35jkt.gathra.domain.flood.FloodHazardRepository
 import opsi.sman35jkt.gathra.domain.geocoding.GeocodingRepository
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
+import opsi.sman35jkt.gathra.data.sensor.remote.SensorNetworkFactory
 import opsi.sman35jkt.gathra.service.navigation.NavigationServiceController
 
 class AppContainer(context: Context) {
@@ -27,6 +28,8 @@ class AppContainer(context: Context) {
 
     val floodHazardRepository: FloodHazardRepository =
         FloodNetworkFactory.createRepository(BuildConfig.API_BASE_URL)
+
+    val sensorRepository = SensorNetworkFactory.createRepository(BuildConfig.API_BASE_URL)
 
     val navigationSessionRepository = NavigationSessionRepository()
 

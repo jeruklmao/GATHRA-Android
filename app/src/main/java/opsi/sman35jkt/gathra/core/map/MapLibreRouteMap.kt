@@ -61,6 +61,7 @@ import opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot
 import opsi.sman35jkt.gathra.core.model.GeoBounds
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.RouteOption
+import opsi.sman35jkt.gathra.domain.sensor.SensorCurrentState
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -87,8 +88,10 @@ fun MapLibreRouteMap(
     colors: RouteMapColors,
     floodSnapshot: FloodHazardSnapshot? = null,
     isFloodLayerVisible: Boolean = true,
+    sensorDetail: SensorCurrentState? = null,
     onMapTap: (GeoPoint) -> Unit,
     onFloodHazardSelected: (String) -> Unit = {},
+    onSensorSelected: (String) -> Unit = {},
     onViewportSettled: (GeoBounds) -> Unit = {},
     onMapError: () -> Unit,
     modifier: Modifier = Modifier,
@@ -98,6 +101,7 @@ fun MapLibreRouteMap(
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestOnMapTap by rememberUpdatedState(onMapTap)
     val latestOnFloodHazardSelected by rememberUpdatedState(onFloodHazardSelected)
+    val latestOnSensorSelected by rememberUpdatedState(onSensorSelected)
     val latestOnViewportSettled by rememberUpdatedState(onViewportSettled)
     val latestOnMapError by rememberUpdatedState(onMapError)
     val latestSelectionEnabled by rememberUpdatedState(selectionEnabled)
@@ -142,6 +146,7 @@ fun MapLibreRouteMap(
             isSelectionEnabled = { latestSelectionEnabled },
             onMapTap = { latestOnMapTap },
             onFloodHazardSelected = { latestOnFloodHazardSelected },
+            onSensorSelected = { latestOnSensorSelected },
             onViewportSettled = { latestOnViewportSettled },
             onMapError = { latestOnMapError },
         )
@@ -178,6 +183,7 @@ fun MapLibreRouteMap(
                     colors = colors,
                     floodSnapshot = floodSnapshot,
                     isFloodLayerVisible = isFloodLayerVisible,
+                    sensorDetail = sensorDetail,
                 ),
             )
         },
@@ -202,6 +208,7 @@ private data class MapRenderModel(
     val colors: RouteMapColors,
     val floodSnapshot: FloodHazardSnapshot?,
     val isFloodLayerVisible: Boolean,
+    val sensorDetail: SensorCurrentState?,
 )
 
 private class MapRouteRenderer(
@@ -213,17 +220,20 @@ private class MapRouteRenderer(
     private var latestModel: MapRenderModel? = null
     private var mapClickListener: MapLibreMap.OnMapClickListener? = null
     private var cameraIdleListener: MapLibreMap.OnCameraIdleListener? = null
+    private var cameraMoveStartedListener: MapLibreMap.OnCameraMoveStartedListener? = null
     private var mapFailureListener: MapView.OnDidFailLoadingMapListener? = null
     private var lastCameraGeometryKey: String? = null
     private var pendingCameraGeometryKey: String? = null
     private var lastStandaloneOriginKey: String? = null
     private var disposed = false
     private var errorReported = false
+    private val initialFloodCameraPolicy = InitialFloodCameraPolicy()
 
     fun attach(
         isSelectionEnabled: () -> Boolean,
         onMapTap: () -> (GeoPoint) -> Unit,
         onFloodHazardSelected: () -> (String) -> Unit,
+        onSensorSelected: () -> (String) -> Unit,
         onViewportSettled: () -> (GeoBounds) -> Unit,
         onMapError: () -> () -> Unit,
     ) {
@@ -262,6 +272,14 @@ private class MapRouteRenderer(
                 }
 
                 val pixel = readyMap.projection.toScreenLocation(coordinate)
+                val sensorFeatures = readyMap.queryRenderedFeatures(pixel, SENSOR_MARKER_LAYER_ID)
+                if (sensorFeatures.isNotEmpty()) {
+                    val nodeId = sensorFeatures.first().getStringProperty(SENSOR_NODE_ID_PROPERTY)
+                    if (!nodeId.isNullOrEmpty()) {
+                        onSensorSelected().invoke(nodeId)
+                        return@OnMapClickListener true
+                    }
+                }
                 val floodFeatures = readyMap.queryRenderedFeatures(pixel, FLOOD_FILL_LAYER_ID)
 
                 if (floodFeatures.isNotEmpty()) {
@@ -276,6 +294,14 @@ private class MapRouteRenderer(
             }
             mapClickListener = clickListener
             readyMap.addOnMapClickListener(clickListener)
+
+            val moveStartedListener = MapLibreMap.OnCameraMoveStartedListener { reason ->
+                if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) {
+                    initialFloodCameraPolicy.takeUserOwnership()
+                }
+            }
+            cameraMoveStartedListener = moveStartedListener
+            readyMap.addOnCameraMoveStartedListener(moveStartedListener)
 
             val idleListener = MapLibreMap.OnCameraIdleListener {
                 val bounds = readyMap.projection.visibleRegion.latLngBounds
@@ -336,6 +362,7 @@ private class MapRouteRenderer(
         val emptyFeatures = FeatureCollection.fromFeatures(emptyArray<Feature>())
 
         style.addSource(GeoJsonSource(FLOOD_SOURCE_ID, emptyFeatures))
+        style.addSource(GeoJsonSource(SENSOR_SOURCE_ID, emptyFeatures))
         style.addSource(GeoJsonSource(ALTERNATIVE_ROUTE_SOURCE_ID, emptyFeatures))
         style.addSource(GeoJsonSource(SELECTED_ROUTE_SOURCE_ID, emptyFeatures))
         style.addSource(GeoJsonSource(ORIGIN_SOURCE_ID, emptyFeatures))
@@ -413,6 +440,30 @@ private class MapRouteRenderer(
         )
 
         style.addLayerAbove(
+            CircleLayer(SENSOR_MARKER_LAYER_ID, SENSOR_SOURCE_ID).withProperties(
+                circleRadius(6.5f),
+                circleStrokeWidth(3.0f),
+                circleColor(0xFFF5F5F5.toInt()),
+                circleStrokeColor(
+                    match(
+                        get(SENSOR_VISUAL_STATE_PROPERTY),
+                        literal("FRESH"), color(0xFF1565C0.toInt()),
+                        literal("STALE"), color(0xFF757575.toInt()),
+                        color(0xFF8D6E63.toInt()),
+                    ),
+                ),
+                circleOpacity(
+                    match(
+                        get(SENSOR_VISUAL_STATE_PROPERTY),
+                        literal("STALE"), literal(0.62f),
+                        literal(0.9f),
+                    ),
+                ),
+            ),
+            FLOOD_UNCERTAIN_OUTLINE_LAYER_ID,
+        )
+
+        style.addLayerAbove(
             LineLayer(ALTERNATIVE_ROUTE_LAYER_ID, ALTERNATIVE_ROUTE_SOURCE_ID).withProperties(
                 lineCap(Property.LINE_CAP_ROUND),
                 lineJoin(Property.LINE_JOIN_ROUND),
@@ -420,7 +471,7 @@ private class MapRouteRenderer(
                 lineOpacity(ALTERNATIVE_ROUTE_OPACITY),
                 lineDasharray(arrayOf(1.25f, 1.5f)),
             ),
-            FLOOD_UNCERTAIN_OUTLINE_LAYER_ID,
+            SENSOR_MARKER_LAYER_ID,
         )
         style.addLayerAbove(
             LineLayer(SELECTED_ROUTE_OUTLINE_LAYER_ID, SELECTED_ROUTE_SOURCE_ID).withProperties(
@@ -482,6 +533,9 @@ private class MapRouteRenderer(
         loadedStyle.geoJsonSource(ALTERNATIVE_ROUTE_SOURCE_ID).setGeoJson(
             routeFeatureCollection(alternativeRoutes),
         )
+        loadedStyle.geoJsonSource(SENSOR_SOURCE_ID).setGeoJson(
+            sensorFeatureCollection(model.sensorDetail),
+        )
         loadedStyle.geoJsonSource(SELECTED_ROUTE_SOURCE_ID).setGeoJson(
             routeFeatureCollection(listOfNotNull(selectedRoute)),
         )
@@ -529,6 +583,33 @@ private class MapRouteRenderer(
             lastCameraGeometryKey = null
             pendingCameraGeometryKey = null
             centerStandaloneOriginIfChanged(model.origin)
+        }
+        fitInitialSensorCoverage(model)
+    }
+
+    private fun fitInitialSensorCoverage(model: MapRenderModel) {
+        val points = initialFloodCameraPolicy.claim(
+            model.floodSnapshot,
+            cameraOwnedByRoute = model.routes.isNotEmpty() || model.destination != null,
+        ) ?: return
+        mapView.post {
+            if (disposed || initialFloodCameraPolicy.isUserOwned) return@post
+            val readyMap = map ?: return@post
+            runCatching {
+                val bounds = LatLngBounds.Builder().includes(points.map(GeoPoint::toLatLng)).build()
+                val horizontal = min(dpToPx(48), mapView.width / 4)
+                val vertical = min(dpToPx(96), mapView.height / 4)
+                readyMap.easeCamera(
+                    CameraUpdateFactory.newLatLngBounds(
+                        bounds,
+                        horizontal,
+                        vertical,
+                        horizontal,
+                        vertical,
+                    ),
+                    CAMERA_ANIMATION_DURATION_MS,
+                )
+            }
         }
     }
 
@@ -687,9 +768,13 @@ private class MapRouteRenderer(
         cameraIdleListener?.let { listener ->
             map?.removeOnCameraIdleListener(listener)
         }
+        cameraMoveStartedListener?.let { listener ->
+            map?.removeOnCameraMoveStartedListener(listener)
+        }
         mapFailureListener?.let(mapView::removeOnDidFailLoadingMapListener)
         mapClickListener = null
         cameraIdleListener = null
+        cameraMoveStartedListener = null
         mapFailureListener = null
         style = null
         map = null
@@ -790,6 +875,24 @@ private fun pointFeatureCollection(point: GeoPoint?): FeatureCollection =
         FeatureCollection.fromFeatures(emptyArray<Feature>())
     }
 
+internal fun sensorFeatureCollection(sensor: SensorCurrentState?): FeatureCollection {
+    if (sensor == null || !sensor.position.isRenderable()) {
+        return FeatureCollection.fromFeatures(emptyArray<Feature>())
+    }
+    val feature = Feature.fromGeometry(sensor.position.toGeoJsonPoint())
+    feature.addStringProperty(SENSOR_NODE_ID_PROPERTY, sensor.nodeId)
+    feature.addStringProperty(
+        SENSOR_VISUAL_STATE_PROPERTY,
+        when {
+            sensor.freshness == opsi.sman35jkt.gathra.core.model.FloodHazardFreshness.STALE -> "STALE"
+            sensor.freshness == opsi.sman35jkt.gathra.core.model.FloodHazardFreshness.FRESH &&
+                sensor.effectiveLevel != opsi.sman35jkt.gathra.core.model.FloodHazardLevel.UNKNOWN -> "FRESH"
+            else -> "UNKNOWN"
+        },
+    )
+    return FeatureCollection.fromFeature(feature)
+}
+
 private fun Double.coerceAtMost(maxVal: Double): Double = if (this > maxVal) maxVal else this
 private fun Double.coerceAtGreater(minVal: Double): Double = if (this < minVal) minVal else this
 
@@ -823,6 +926,10 @@ private const val FLOOD_SOURCE_ID = "gathra-flood-source"
 private const val FLOOD_FILL_LAYER_ID = "gathra-flood-fill"
 private const val FLOOD_OUTLINE_LAYER_ID = "gathra-flood-outline"
 private const val FLOOD_UNCERTAIN_OUTLINE_LAYER_ID = "gathra-flood-uncertain-outline"
+private const val SENSOR_SOURCE_ID = "gathra-sensor-source"
+private const val SENSOR_MARKER_LAYER_ID = "gathra-sensor-marker-layer"
+private const val SENSOR_NODE_ID_PROPERTY = "nodeId"
+private const val SENSOR_VISUAL_STATE_PROPERTY = "sensorVisualState"
 
 private const val ALTERNATIVE_ROUTE_SOURCE_ID = "gathra-route-alternative-source"
 private const val SELECTED_ROUTE_SOURCE_ID = "gathra-route-selected-source"

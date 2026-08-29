@@ -45,6 +45,7 @@ fun GathraApp(
             locationRepository = appContainer.locationRepository,
             geocodingRepository = appContainer.geocodingRepository,
             floodHazardRepository = appContainer.floodHazardRepository,
+            sensorRepository = appContainer.sensorRepository,
         )
     }
     val searchFactory = remember(appContainer) {

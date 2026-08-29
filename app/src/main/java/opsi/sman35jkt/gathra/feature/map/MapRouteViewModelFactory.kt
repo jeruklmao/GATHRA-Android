@@ -8,12 +8,14 @@ import opsi.sman35jkt.gathra.core.location.LocationRepository
 import opsi.sman35jkt.gathra.domain.flood.FloodHazardRepository
 import opsi.sman35jkt.gathra.domain.geocoding.GeocodingRepository
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
+import opsi.sman35jkt.gathra.domain.sensor.SensorRepository
 
 class MapRouteViewModelFactory(
     private val routeRepository: RouteRepository,
     private val locationRepository: LocationRepository,
     private val geocodingRepository: GeocodingRepository,
     private val floodHazardRepository: FloodHazardRepository,
+    private val sensorRepository: SensorRepository,
     private val workDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModelProvider.Factory {
 
@@ -28,6 +30,7 @@ class MapRouteViewModelFactory(
             locationRepository = locationRepository,
             geocodingRepository = geocodingRepository,
             floodHazardRepository = floodHazardRepository,
+            sensorRepository = sensorRepository,
             workDispatcher = workDispatcher,
         ) as T
     }

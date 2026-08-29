@@ -319,11 +319,15 @@ fun MapRouteRoute(
                 ),
                 floodSnapshot = state.floodHazardSnapshot,
                 isFloodLayerVisible = state.isFloodLayerVisible,
+                sensorDetail = state.sensorDetail,
                 onMapTap = {
                     viewModel.onAction(MapRouteAction.MapPointTapped(it))
                 },
                 onFloodHazardSelected = { id ->
                     viewModel.onAction(MapRouteAction.FloodHazardSelected(id))
+                },
+                onSensorSelected = { nodeId ->
+                    viewModel.onAction(MapRouteAction.SensorMarkerSelected(nodeId))
                 },
                 onViewportSettled = { bounds ->
                     viewModel.onAction(MapRouteAction.MapViewportSettled(bounds))

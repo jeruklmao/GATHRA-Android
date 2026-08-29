@@ -14,15 +14,22 @@ import opsi.sman35jkt.gathra.core.location.LocationLookupResult
 import opsi.sman35jkt.gathra.core.location.LocationRepository
 import opsi.sman35jkt.gathra.core.map.JakartaDemoPoints
 import opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot
+import opsi.sman35jkt.gathra.core.model.FloodHazardFreshness
+import opsi.sman35jkt.gathra.core.model.FloodHazardLevel
+import opsi.sman35jkt.gathra.core.model.FloodHazardPolygon
+import opsi.sman35jkt.gathra.core.model.FloodHazardSource
 import opsi.sman35jkt.gathra.core.model.GeoBounds
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.RouteRequest
 import opsi.sman35jkt.gathra.data.flood.FakeFloodHazardRepository
+import opsi.sman35jkt.gathra.data.sensor.FakeSensorRepository
 import opsi.sman35jkt.gathra.data.geocoding.FakeGeocodingRepository
 import opsi.sman35jkt.gathra.data.route.FakeRouteRepository
 import opsi.sman35jkt.gathra.domain.flood.FloodHazardRepository
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
+import opsi.sman35jkt.gathra.domain.sensor.SensorCurrentState
+import opsi.sman35jkt.gathra.domain.sensor.SensorRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -249,6 +256,51 @@ class MapRouteFloodSafetyViewModelTest {
         )
     }
 
+    @Test
+    fun `sensor detail refreshes every thirty seconds only while the shared sheet is open`() =
+        runTest {
+            val sensorRepository = FakeSensorRepository(
+                SensorCurrentState(
+                    "NODE-1", GeoPoint(-6.235, 106.720), 125,
+                    FloodHazardLevel.MEDIUM, FloodHazardFreshness.FRESH,
+                    1L, 1600, 31.2, 72.4, null,
+                ),
+            )
+            val floodRepository = object : FloodHazardRepository {
+                override suspend fun getActiveHazards(bounds: GeoBounds?) = sensorSnapshot()
+            }
+            val viewModel = createViewModel(
+                floodRepository = floodRepository,
+                sensorRepository = sensorRepository,
+                config = FloodRefreshConfig(
+                    pollingIntervalMillis = 60_000,
+                    viewportDebounceMillis = 0,
+                    snapshotMismatchDebounceMillis = 100,
+                    sensorDetailPollingIntervalMillis = 30_000,
+                ),
+            )
+            refreshFlood(viewModel)
+            assertEquals(1, sensorRepository.calls)
+
+            viewModel.onAction(MapRouteAction.FloodHazardSelected("sensor-NODE-1"))
+            runCurrent()
+            assertEquals(2, sensorRepository.calls)
+            advanceTimeBy(29_999)
+            runCurrent()
+            assertEquals(2, sensorRepository.calls)
+            advanceTimeBy(1)
+            runCurrent()
+            assertEquals(3, sensorRepository.calls)
+
+            viewModel.onAction(MapRouteAction.RefreshSensorDetail)
+            runCurrent()
+            assertEquals(4, sensorRepository.calls)
+            viewModel.onAction(MapRouteAction.DismissFloodHazardDetails)
+            advanceTimeBy(60_000)
+            runCurrent()
+            assertEquals(4, sensorRepository.calls)
+        }
+
     private fun createViewModel(
         routeRepository: RouteRepository = SnapshotRouteRepository(),
         floodRepository: FloodHazardRepository = RecordingFloodRepository(),
@@ -257,6 +309,7 @@ class MapRouteFloodSafetyViewModelTest {
             viewportDebounceMillis = 0,
             snapshotMismatchDebounceMillis = MISMATCH_DEBOUNCE_MILLIS,
         ),
+        sensorRepository: SensorRepository = FakeSensorRepository(),
     ) = MapRouteViewModel(
         routeRepository = routeRepository,
         locationRepository = object : LocationRepository {
@@ -265,6 +318,7 @@ class MapRouteFloodSafetyViewModelTest {
         },
         geocodingRepository = FakeGeocodingRepository(loadingDelayMillis = 0),
         floodHazardRepository = floodRepository,
+        sensorRepository = sensorRepository,
         workDispatcher = Dispatchers.Main,
         floodRefreshConfig = config,
     )
@@ -345,4 +399,18 @@ class MapRouteFloodSafetyViewModelTest {
     private companion object {
         const val MISMATCH_DEBOUNCE_MILLIS = 100L
     }
+
+    private fun sensorSnapshot() = FloodHazardSnapshot(
+        "sensor-snapshot", 1L, null, FloodHazardSource.SENSOR,
+        listOf(
+            FloodHazardPolygon(
+                "sensor-NODE-1", FloodHazardLevel.MEDIUM,
+                listOf(listOf(
+                    GeoPoint(-6.23, 106.71), GeoPoint(-6.24, 106.72),
+                    GeoPoint(-6.22, 106.73), GeoPoint(-6.23, 106.71),
+                )), null, null, 1L, 2L, FloodHazardSource.SENSOR,
+                listOf("NODE-1"), 0.35, emptyList(), FloodHazardFreshness.FRESH,
+            ),
+        ),
+    )
 }

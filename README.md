@@ -20,6 +20,8 @@ never connects to either provider directly.
   the configured Jakarta–Tangerang pilot region.
 - Sensor-backed flood coverage polygons, route-risk metadata, snapshot
   synchronization, and runtime-multiplier route exclusion.
+- A Backend-positioned current sensor marker and shared scrollable detail sheet
+  with authoritative water state plus sanitized Gateway connectivity.
 
 Production flood observations come from Protocol 3 Nodes through the Gateway
 and PostgreSQL-backed Backend classifier. The public hazard API remains a

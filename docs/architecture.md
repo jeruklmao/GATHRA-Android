@@ -40,6 +40,8 @@ test-source fixtures and are not packaged into either variant.
 - `domain/route`: provider-neutral `RouteRepository`.
 - `domain/geocoding`: provider-neutral `GeocodingRepository`.
 - `domain/flood`: provider-neutral `FloodHazardRepository`.
+- `domain/sensor`: sanitized current sensor/Gateway models and repository; no
+  history or persistent cache.
 - `domain/navigation`: navigation repository, session/progress/status models,
   and explicit state transitions.
 - `data/route/remote`: Retrofit API, strict DTO mapping, and remote repository.
@@ -47,6 +49,8 @@ test-source fixtures and are not packaged into either variant.
   repository.
 - `data/flood/remote`: Retrofit/GeoJSON API, strict snapshot mapping, and remote
   repository.
+- `data/sensor/remote`: strict Retrofit mapping for public
+  `GET /api/v1/sensors/:nodeId`.
 - `data/location`: one-shot foreground location and fused active-navigation
   updates.
 - `data/navigation`: geometry projection, progress, deviation, filtering,
@@ -207,10 +211,26 @@ no route penalty, a value strictly between 0 and 1 means a penalty, and 0 means
 hard exclusion. Android explains this actual effect without hard-coding the
 current Backend defaults.
 
-Android does not persist flood snapshots for offline use and does not expose
-Node temperature, humidity, battery, radio diagnostics, telemetry history, or
-Gateway operational metrics in this phase. Snapshot invalidation remains
-polling-based rather than real-time push.
+For a SENSOR polygon with exactly one `sourceNodeId`, Android loads the public
+current detail and renders a small marker at the Backend deployment coordinate.
+Polygon and marker taps converge on the existing scrollable detail sheet. While
+that sheet is open and lifecycle-active, detail refreshes every 30 seconds and
+supports pull-to-refresh. Application refresh time is separate from the
+Backend-authoritative measurement `observedAt` and freshness; failures preserve
+only in-memory data with its original measurement time.
+
+The first usable SENSOR coverage polygon is fit once from geometry bounds with
+padding. Later flood/sensor/Gateway refreshes never recenter it, and user or
+route/navigation camera ownership cancels the initial fit. The Jakarta camera
+is retained only as the no-geometry/network fallback.
+
+Android displays authoritative water height/effective risk, accepted distance,
+temperature/humidity, Backend-derived heartbeat state, recent radio reception,
+raw RSSI/SNR measurements, and sanitized delivery status. It does not calculate
+water height, heartbeat status, radio quality, or delivery health. It does not
+persist flood/sensor state or expose raw distance, battery, filter/health
+diagnostics, ACK data, Gateway network/runtime internals, sensor history, or
+charts. Polling is latest/current state, not continuous streaming.
 
 ## Deployment boundary
 

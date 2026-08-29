@@ -16,6 +16,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,10 +32,20 @@ import opsi.sman35jkt.gathra.core.model.FloodHazardLevel
 import opsi.sman35jkt.gathra.core.model.FloodHazardPolygon
 import opsi.sman35jkt.gathra.core.model.FloodHazardSource
 import kotlin.math.roundToInt
+import opsi.sman35jkt.gathra.domain.sensor.BackendDeliveryStatus
+import opsi.sman35jkt.gathra.domain.sensor.GatewayStatus
+import opsi.sman35jkt.gathra.domain.sensor.RadioReceptionStatus
+import opsi.sman35jkt.gathra.domain.sensor.SensorCurrentState
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FloodHazardDetailSheet(
     hazard: FloodHazardPolygon,
+    sensor: SensorCurrentState? = null,
+    isRefreshing: Boolean = false,
+    refreshFailed: Boolean = false,
+    refreshedAtEpochMillis: Long? = null,
+    onRefresh: () -> Unit = {},
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     nowEpochMillis: Long = System.currentTimeMillis(),
@@ -66,11 +78,14 @@ fun FloodHazardDetailSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Column(
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh,
                 modifier = Modifier
                     .weight(1f, fill = false)
-                    .verticalScroll(rememberScrollState()),
+                    .fillMaxWidth(),
             ) {
+              Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     text = stringResource(
                         floodDescriptionStringResource(hazard.source, hazard.level),
@@ -78,6 +93,34 @@ fun FloodHazardDetailSheet(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+
+                if (hazard.source == FloodHazardSource.SENSOR) {
+                    DetailDivider()
+                    if (sensor == null) {
+                        Text(
+                            text = stringResource(
+                                if (isRefreshing) R.string.sensor_detail_loading
+                                else R.string.sensor_detail_unavailable,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    } else {
+                        SensorCurrentContent(sensor, nowEpochMillis)
+                    }
+                    refreshedAtEpochMillis?.let {
+                        DetailField(
+                            label = stringResource(R.string.sensor_app_refresh_label),
+                            value = formatFloodClockTime(it),
+                        )
+                    }
+                    if (refreshFailed) {
+                        Text(
+                            text = stringResource(R.string.sensor_refresh_failed),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
 
                 hazard.confidence?.let { confidence ->
                     Spacer(modifier = Modifier.height(6.dp))
@@ -181,6 +224,7 @@ fun FloodHazardDetailSheet(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 )
+              }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -193,6 +237,79 @@ fun FloodHazardDetailSheet(
         }
     }
 }
+
+@Composable
+private fun SensorCurrentContent(sensor: SensorCurrentState, nowEpochMillis: Long) {
+    DetailField(
+        label = stringResource(R.string.sensor_water_height),
+        value = sensor.waterHeightMm?.let { "$it mm" } ?: "—",
+    )
+    DetailField(
+        label = stringResource(R.string.sensor_accepted_distance),
+        value = sensor.acceptedDistanceMm?.let { "$it mm" } ?: "—",
+    )
+    DetailField(label = stringResource(R.string.sensor_node_label), value = sensor.nodeId)
+    DetailField(
+        label = stringResource(R.string.sensor_location_label),
+        value = "%.6f, %.6f".format(sensor.position.latitude, sensor.position.longitude),
+    )
+    val environment = listOfNotNull(
+        sensor.temperatureC?.let { "%.1f °C".format(it) },
+        sensor.humidityPercent?.let { "%.1f%% RH".format(it) },
+    ).joinToString(" · ").ifEmpty { "—" }
+    DetailField(label = stringResource(R.string.sensor_environment_label), value = environment)
+    val gateway = sensor.gateway
+    DetailField(
+        label = stringResource(R.string.sensor_gateway_label),
+        value = when (gateway?.status ?: GatewayStatus.UNAVAILABLE) {
+            GatewayStatus.ONLINE -> stringResource(R.string.gateway_online)
+            GatewayStatus.STALE -> stringResource(R.string.gateway_stale)
+            GatewayStatus.OFFLINE -> stringResource(R.string.gateway_offline)
+            GatewayStatus.UNAVAILABLE -> stringResource(R.string.sensor_value_unavailable)
+        },
+    )
+    DetailField(
+        label = stringResource(R.string.sensor_heartbeat_label),
+        value = gateway?.lastHeartbeatAtEpochMillis?.let {
+            relativeTimeText(it, nowEpochMillis)
+        } ?: stringResource(R.string.sensor_value_unavailable),
+    )
+    DetailField(
+        label = stringResource(R.string.sensor_radio_label),
+        value = when (gateway?.radioReceptionStatus ?: RadioReceptionStatus.UNAVAILABLE) {
+            RadioReceptionStatus.RECENT -> stringResource(R.string.radio_recent)
+            RadioReceptionStatus.STALE -> stringResource(R.string.gateway_stale)
+            RadioReceptionStatus.UNAVAILABLE -> stringResource(R.string.sensor_value_unavailable)
+        },
+    )
+    DetailField(
+        label = stringResource(R.string.sensor_radio_measurements),
+        value = "RSSI ${gateway?.latestRssiDbm?.let { formatNumber(it) } ?: "—"} dBm · " +
+            "SNR ${gateway?.latestSnrDb?.let { formatNumber(it) } ?: "—"} dB",
+    )
+    DetailField(
+        label = stringResource(R.string.sensor_delivery_label),
+        value = when (gateway?.backendDeliveryStatus ?: BackendDeliveryStatus.UNAVAILABLE) {
+            BackendDeliveryStatus.NORMAL -> stringResource(R.string.delivery_normal)
+            BackendDeliveryStatus.DEGRADED -> stringResource(R.string.delivery_degraded)
+            BackendDeliveryStatus.UNAVAILABLE -> stringResource(R.string.sensor_value_unavailable)
+        },
+    )
+}
+
+@Composable
+private fun relativeTimeText(at: Long, now: Long): String {
+    val age = floodRelativeAge(at, now)
+    return when (age.unit) {
+        FloodRelativeAgeUnit.SECONDS -> pluralStringResource(R.plurals.sensor_seconds_ago, age.value.toInt(), age.value)
+        FloodRelativeAgeUnit.MINUTES -> pluralStringResource(R.plurals.sensor_minutes_ago, age.value.toInt(), age.value)
+        FloodRelativeAgeUnit.HOURS -> pluralStringResource(R.plurals.sensor_hours_ago, age.value.toInt(), age.value)
+        FloodRelativeAgeUnit.DAYS -> pluralStringResource(R.plurals.sensor_days_ago, age.value.toInt(), age.value)
+    }
+}
+
+private fun formatNumber(value: Double): String =
+    if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
 
 @Composable
 private fun FloodSourceContent(hazard: FloodHazardPolygon) {

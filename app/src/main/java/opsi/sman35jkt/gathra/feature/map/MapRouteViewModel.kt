@@ -31,16 +31,19 @@ import opsi.sman35jkt.gathra.domain.geocoding.GeocodingRepository
 import opsi.sman35jkt.gathra.domain.route.RouteFailureReason
 import opsi.sman35jkt.gathra.domain.route.RouteRepository
 import opsi.sman35jkt.gathra.domain.route.RouteRepositoryException
+import opsi.sman35jkt.gathra.domain.sensor.SensorRepository
 
 data class FloodRefreshConfig(
     val pollingIntervalMillis: Long = 20_000L,
     val viewportDebounceMillis: Long = 600L,
     val snapshotMismatchDebounceMillis: Long = 750L,
+    val sensorDetailPollingIntervalMillis: Long = 30_000L,
 ) {
     init {
         require(pollingIntervalMillis > 0)
         require(viewportDebounceMillis >= 0)
         require(snapshotMismatchDebounceMillis >= 0)
+        require(sensorDetailPollingIntervalMillis > 0)
     }
 }
 
@@ -49,6 +52,7 @@ class MapRouteViewModel(
     private val locationRepository: LocationRepository,
     private val geocodingRepository: GeocodingRepository,
     private val floodHazardRepository: FloodHazardRepository,
+    private val sensorRepository: SensorRepository,
     private val workDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val floodRefreshConfig: FloodRefreshConfig = FloodRefreshConfig(),
 ) : ViewModel() {
@@ -72,6 +76,8 @@ class MapRouteViewModel(
     private var floodFetchJob: Job? = null
     private var floodMismatchRecalculationJob: Job? = null
     private var viewportDebounceJob: Job? = null
+    private var sensorFetchJob: Job? = null
+    private var sensorPollingJob: Job? = null
     private var scheduledFloodSnapshotId: String? = null
     private val reverseGeocodingJobs = mutableMapOf<PointSelectionMode, Job>()
     private val routeRequestGeneration = AtomicLong(0)
@@ -81,7 +87,10 @@ class MapRouteViewModel(
     fun onAction(action: MapRouteAction) {
         when (action) {
             MapRouteAction.ScreenStarted -> startFloodPolling()
-            MapRouteAction.ScreenStopped -> stopFloodPolling()
+            MapRouteAction.ScreenStopped -> {
+                stopFloodPolling()
+                stopSensorPolling()
+            }
             is MapRouteAction.StartPointSelection -> startPointSelection(action.mode)
             is MapRouteAction.SearchRequested -> requestPlaceSearch(action.mode)
             is MapRouteAction.PlaceSelected -> selectPlace(
@@ -119,6 +128,8 @@ class MapRouteViewModel(
             MapRouteAction.RetryFloodRouteUpdate -> retryFloodRouteUpdate()
             MapRouteAction.ToggleFloodLayer -> toggleFloodLayer()
             is MapRouteAction.FloodHazardSelected -> selectFloodHazard(action.hazardId)
+            is MapRouteAction.SensorMarkerSelected -> selectSensorMarker(action.nodeId)
+            MapRouteAction.RefreshSensorDetail -> refreshSelectedSensor()
             MapRouteAction.DismissFloodHazardDetails -> dismissFloodHazardDetails()
             is MapRouteAction.MapViewportSettled -> onViewportSettled(action.bounds)
         }
@@ -208,6 +219,7 @@ class MapRouteViewModel(
                 if (shouldScheduleRecalculation) {
                     scheduleFloodRouteUpdate(snapshot.snapshotId)
                 }
+                ensureSensorMarkerDetail(snapshot)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Throwable) {
@@ -282,14 +294,87 @@ class MapRouteViewModel(
 
     private fun selectFloodHazard(hazardId: String) {
         _uiState.update { it.copy(selectedFloodHazardId = hazardId) }
+        startSelectedSensorPolling()
     }
 
     private fun dismissFloodHazardDetails() {
         _uiState.update { it.copy(selectedFloodHazardId = null) }
+        stopSensorPolling()
+    }
+
+    private fun selectSensorMarker(nodeId: String) {
+        val hazard = _uiState.value.floodHazardSnapshot?.hazards
+            ?.firstOrNull { it.sourceNodeIds.size == 1 && it.sourceNodeIds.single() == nodeId }
+            ?: return
+        selectFloodHazard(hazard.id)
+    }
+
+    private fun ensureSensorMarkerDetail(snapshot: opsi.sman35jkt.gathra.core.model.FloodHazardSnapshot) {
+        val nodeIds = snapshot.hazards
+            .filter { it.source == opsi.sman35jkt.gathra.core.model.FloodHazardSource.SENSOR }
+            .flatMap { it.sourceNodeIds }
+            .distinct()
+        if (nodeIds.size != 1) {
+            stopSensorPolling()
+            _uiState.update { it.copy(sensorDetail = null) }
+            return
+        }
+        if (_uiState.value.sensorDetail?.nodeId == nodeIds.single()) return
+        fetchSensorDetail(nodeIds.single())
+    }
+
+    private fun startSelectedSensorPolling() {
+        stopSensorPolling()
+        val nodeId = _uiState.value.selectedSensorNodeId ?: return
+        fetchSensorDetail(nodeId)
+        sensorPollingJob = viewModelScope.launch {
+            while (isActive) {
+                delay(floodRefreshConfig.sensorDetailPollingIntervalMillis)
+                fetchSensorDetail(nodeId)
+            }
+        }
+    }
+
+    private fun stopSensorPolling() {
+        sensorPollingJob?.cancel()
+        sensorPollingJob = null
+        sensorFetchJob?.cancel()
+        sensorFetchJob = null
+        _uiState.update { it.copy(isLoadingSensorDetail = false) }
+    }
+
+    private fun refreshSelectedSensor() {
+        _uiState.value.selectedSensorNodeId?.let(::fetchSensorDetail)
+    }
+
+    private fun fetchSensorDetail(nodeId: String) {
+        sensorFetchJob?.cancel()
+        _uiState.update { it.copy(isLoadingSensorDetail = true, sensorDetailRefreshFailed = false) }
+        sensorFetchJob = viewModelScope.launch {
+            try {
+                val detail = withContext(workDispatcher) { sensorRepository.getCurrent(nodeId) }
+                if (detail.nodeId != nodeId) return@launch
+                _uiState.update {
+                    it.copy(
+                        sensorDetail = detail,
+                        isLoadingSensorDetail = false,
+                        sensorDetailRefreshFailed = false,
+                        sensorDetailRefreshedAtEpochMillis = System.currentTimeMillis(),
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                _uiState.update {
+                    it.copy(isLoadingSensorDetail = false, sensorDetailRefreshFailed = true)
+                }
+            }
+        }
     }
 
     private fun onViewportSettled(bounds: GeoBounds) {
         if (floodPollingJob?.isActive != true) return
+        if (_uiState.value.floodHazardSnapshot == null) return
         viewportDebounceJob?.cancel()
         viewportDebounceJob = viewModelScope.launch {
             delay(floodRefreshConfig.viewportDebounceMillis)

@@ -268,6 +268,14 @@ fun MapRouteScreen(
                 state.selectedFloodHazard?.let { hazard ->
                     FloodHazardDetailSheet(
                         hazard = hazard,
+                        sensor = state.sensorDetail?.takeIf {
+                            hazard.sourceNodeIds.size == 1 &&
+                                it.nodeId == hazard.sourceNodeIds.single()
+                        },
+                        isRefreshing = state.isLoadingSensorDetail,
+                        refreshFailed = state.sensorDetailRefreshFailed,
+                        refreshedAtEpochMillis = state.sensorDetailRefreshedAtEpochMillis,
+                        onRefresh = { onAction(MapRouteAction.RefreshSensorDetail) },
                         onDismiss = {
                             onAction(MapRouteAction.DismissFloodHazardDetails)
                         },

@@ -12,6 +12,11 @@ import opsi.sman35jkt.gathra.core.model.FloodHazardSource
 import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.feature.map.components.FloodHazardDetailSheet
 import opsi.sman35jkt.gathra.ui.theme.GATHRATheme
+import opsi.sman35jkt.gathra.domain.sensor.BackendDeliveryStatus
+import opsi.sman35jkt.gathra.domain.sensor.GatewayStatus
+import opsi.sman35jkt.gathra.domain.sensor.RadioReceptionStatus
+import opsi.sman35jkt.gathra.domain.sensor.SensorCurrentState
+import opsi.sman35jkt.gathra.domain.sensor.SensorGatewaySummary
 import org.junit.Rule
 import org.junit.Test
 
@@ -129,17 +134,81 @@ class FloodHazardDetailSheetTest {
             .assertCountEquals(0)
     }
 
-    private fun setHazard(hazard: FloodHazardPolygon) {
+    @Test
+    fun currentSensorShowsOnlyPhaseTwoPublicInformation() {
+        setHazard(
+            sensorHazard(FloodHazardLevel.LOW, FloodHazardFreshness.FRESH, 1.0),
+            sensor = sensor(),
+        )
+        for (text in listOf(
+            "Ketinggian air", "123 mm", "Jarak permukaan ke sensor", "1602 mm",
+            "Lokasi sensor", "-6.235149, 106.720401", "31.2 °C · 72.4% RH",
+            "Koneksi Gateway", "Online", "Radio Node → Gateway", "Baik",
+            "RSSI -79 dBm · SNR 8.4 dB", "Pengiriman ke server", "Normal",
+        )) composeRule.onNodeWithText(text).assertExists()
+        for (forbidden in listOf(
+            "rawDistance", "Baterai", "filterState", "qualityFlags", "healthFlags",
+            "ACK", "SSID", "Grafik", "Riwayat",
+        )) composeRule.onAllNodesWithText(forbidden, substring = true, ignoreCase = true)
+            .assertCountEquals(0)
+        for (forbidden in listOf("IP", "MAC")) {
+            composeRule.onAllNodesWithText(forbidden).assertCountEquals(0)
+        }
+    }
+
+    @Test
+    fun GatewayAndRadioUnavailableStatesRemainExplicit() {
+        setHazard(
+            sensorHazard(FloodHazardLevel.UNKNOWN, FloodHazardFreshness.STALE, 1.0),
+            sensor = sensor(
+                temperatureC = null,
+                humidityPercent = null,
+                gateway = SensorGatewaySummary(
+                    GatewayStatus.UNAVAILABLE, null, RadioReceptionStatus.UNAVAILABLE,
+                    null, null, BackendDeliveryStatus.UNAVAILABLE,
+                ),
+            ),
+        )
+        composeRule.onAllNodesWithText("Tidak tersedia").assertCountEquals(4)
+        composeRule.onNodeWithText("RSSI — dBm · SNR — dB").assertExists()
+    }
+
+    private fun setHazard(hazard: FloodHazardPolygon, sensor: SensorCurrentState? = null) {
         composeRule.setContent {
             GATHRATheme {
                 FloodHazardDetailSheet(
                     hazard = hazard,
+                    sensor = sensor,
                     onDismiss = {},
                     nowEpochMillis = NOW_EPOCH_MILLIS,
                 )
             }
         }
     }
+
+    private fun sensor(
+        temperatureC: Double? = 31.2,
+        humidityPercent: Double? = 72.4,
+        gateway: SensorGatewaySummary? = SensorGatewaySummary(
+            GatewayStatus.ONLINE,
+            NOW_EPOCH_MILLIS - 35_000,
+            RadioReceptionStatus.RECENT,
+            -79.0,
+            8.4,
+            BackendDeliveryStatus.NORMAL,
+        ),
+    ) = SensorCurrentState(
+        nodeId = "GTH-10003BD4BCFC",
+        position = GeoPoint(-6.235149, 106.720401),
+        waterHeightMm = 123,
+        effectiveLevel = FloodHazardLevel.LOW,
+        freshness = FloodHazardFreshness.FRESH,
+        observedAtEpochMillis = OBSERVED_AT_EPOCH_MILLIS,
+        acceptedDistanceMm = 1602,
+        temperatureC = temperatureC,
+        humidityPercent = humidityPercent,
+        gateway = gateway,
+    )
 
     private fun assertNoSimulationLeak() {
         composeRule.onAllNodesWithText("simulasi", substring = true, ignoreCase = true)

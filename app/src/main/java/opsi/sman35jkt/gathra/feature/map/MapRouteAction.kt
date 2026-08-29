@@ -68,6 +68,10 @@ sealed interface MapRouteAction {
 
     data class FloodHazardSelected(val hazardId: String) : MapRouteAction
 
+    data class SensorMarkerSelected(val nodeId: String) : MapRouteAction
+
+    data object RefreshSensorDetail : MapRouteAction
+
     data object DismissFloodHazardDetails : MapRouteAction
 
     data class MapViewportSettled(val bounds: GeoBounds) : MapRouteAction

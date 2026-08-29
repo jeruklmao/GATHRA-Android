@@ -6,6 +6,7 @@ import opsi.sman35jkt.gathra.core.model.GeoPoint
 import opsi.sman35jkt.gathra.core.model.RouteOption
 import opsi.sman35jkt.gathra.core.model.RouteSelectionPoint
 import opsi.sman35jkt.gathra.core.model.TravelMode
+import opsi.sman35jkt.gathra.domain.sensor.SensorCurrentState
 
 /**
  * Immutable state rendered by the route-preview screen.
@@ -38,6 +39,10 @@ data class MapRouteUiState(
     val floodRefreshStatus: FloodRefreshStatus = FloodRefreshStatus.UNAVAILABLE,
     val floodRouteSyncState: FloodRouteSyncState = FloodRouteSyncState.NOT_EVALUATED,
     val floodRouteTargetSnapshotId: String? = null,
+    val sensorDetail: SensorCurrentState? = null,
+    val isLoadingSensorDetail: Boolean = false,
+    val sensorDetailRefreshFailed: Boolean = false,
+    val sensorDetailRefreshedAtEpochMillis: Long? = null,
 ) {
     val selectedRoute: RouteOption?
         get() = routes.firstOrNull { it.id == selectedRouteId }
@@ -53,6 +58,12 @@ data class MapRouteUiState(
 
     val selectedFloodHazard: FloodHazardPolygon?
         get() = floodHazardSnapshot?.hazards?.firstOrNull { it.id == selectedFloodHazardId }
+
+    val selectedSensorNodeId: String?
+        get() = selectedFloodHazard
+            ?.takeIf { it.sourceNodeIds.size == 1 }
+            ?.sourceNodeIds
+            ?.single()
 
     val isFloodSnapshotOutOfSync: Boolean
         get() = floodRouteSyncState in setOf(
