@@ -53,7 +53,7 @@ fun FloodHazardDetailSheet(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(max = 500.dp)
+            .heightIn(max = 420.dp)
             .padding(horizontal = 16.dp),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
