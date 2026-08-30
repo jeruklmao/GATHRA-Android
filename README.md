@@ -82,7 +82,9 @@ Release signing reads `GATHRA_RELEASE_STORE_FILE`,
 `GATHRA_RELEASE_STORE_PASSWORD`, `GATHRA_RELEASE_KEY_ALIAS`, and
 `GATHRA_RELEASE_KEY_PASSWORD` from the user-level Gradle properties file. Keep
 that file and the keystore outside the repository; no signing credentials are
-stored in source.
+stored in source. When all four properties are present, `assembleRelease`
+produces a signed APK. Without them, such as in GitHub Actions, the release
+build remains an unsigned compilation/package check and must not be distributed.
 
 See [architecture](docs/architecture.md) and
 [development](docs/development.md) for current boundaries and workflows. The

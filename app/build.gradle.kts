@@ -72,6 +72,25 @@ val releaseApiBaseUrl = providers
         )
     }
 
+val releaseStoreFile = providers
+    .gradleProperty("GATHRA_RELEASE_STORE_FILE")
+    .orNull
+val releaseStorePassword = providers
+    .gradleProperty("GATHRA_RELEASE_STORE_PASSWORD")
+    .orNull
+val releaseKeyAlias = providers
+    .gradleProperty("GATHRA_RELEASE_KEY_ALIAS")
+    .orNull
+val releaseKeyPassword = providers
+    .gradleProperty("GATHRA_RELEASE_KEY_PASSWORD")
+    .orNull
+val releaseSigningConfigured = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "opsi.sman35jkt.gathra"
     compileSdk {
@@ -92,15 +111,13 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file(
-                providers.gradleProperty("GATHRA_RELEASE_STORE_FILE").get(),
-            )
-            storePassword =
-                providers.gradleProperty("GATHRA_RELEASE_STORE_PASSWORD").get()
-            keyAlias = providers.gradleProperty("GATHRA_RELEASE_KEY_ALIAS").get()
-            keyPassword =
-                providers.gradleProperty("GATHRA_RELEASE_KEY_PASSWORD").get()
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword!!
+                keyAlias = releaseKeyAlias!!
+                keyPassword = releaseKeyPassword!!
+            }
         }
     }
 
@@ -116,7 +133,9 @@ android {
                 URI(apiBaseUrl).scheme.equals("http", ignoreCase = true).toString()
         }
         release {
-            signingConfig = signingConfigs.getByName("release")
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization {
                 enable = false
             }
