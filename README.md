@@ -61,7 +61,7 @@ heartbeat health, or routing policy.
 
 ## Build configuration
 
-Application version: **1.0** (`versionCode` 1). Minimum SDK is 24 and target SDK
+Application version: **0.1.0** (`versionCode` 1). Minimum SDK is 24 and target SDK
 is 36. The only application variants are `debug` and `release`; both default to:
 
 ```text
@@ -78,8 +78,11 @@ JAVA_HOME=/opt/android-studio/jbr ./gradlew assembleRelease
 JAVA_HOME=/opt/android-studio/jbr ./gradlew compileDebugAndroidTestKotlin
 ```
 
-Release assembly is an unsigned compilation gate. Signing and distribution are
-managed outside this repository.
+Release signing reads `GATHRA_RELEASE_STORE_FILE`,
+`GATHRA_RELEASE_STORE_PASSWORD`, `GATHRA_RELEASE_KEY_ALIAS`, and
+`GATHRA_RELEASE_KEY_PASSWORD` from the user-level Gradle properties file. Keep
+that file and the keystore outside the repository; no signing credentials are
+stored in source.
 
 See [architecture](docs/architecture.md) and
 [development](docs/development.md) for current boundaries and workflows. The

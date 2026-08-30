@@ -85,10 +85,23 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["usesCleartextTraffic"] = "false"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(
+                providers.gradleProperty("GATHRA_RELEASE_STORE_FILE").get(),
+            )
+            storePassword =
+                providers.gradleProperty("GATHRA_RELEASE_STORE_PASSWORD").get()
+            keyAlias = providers.gradleProperty("GATHRA_RELEASE_KEY_ALIAS").get()
+            keyPassword =
+                providers.gradleProperty("GATHRA_RELEASE_KEY_PASSWORD").get()
+        }
     }
 
     buildTypes {
@@ -103,6 +116,7 @@ android {
                 URI(apiBaseUrl).scheme.equals("http", ignoreCase = true).toString()
         }
         release {
+            signingConfig = signingConfigs.getByName("release")
             optimization {
                 enable = false
             }

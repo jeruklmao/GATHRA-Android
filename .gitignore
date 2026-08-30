@@ -16,3 +16,8 @@ build/
 /docs/screenshots/
 .externalNativeBuild/
 .cxx/
+
+# Keystore
+*.jks
+*.keystore
+keystore.properties
