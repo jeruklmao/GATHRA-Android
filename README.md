@@ -97,3 +97,11 @@ contracts, explicit flood simulation, and backend quality checks.
 
 OpenStreetMap-derived routing and geocoding data remains subject to
 OpenStreetMap attribution and the ODbL.
+
+---
+
+Copyright © 2026 GATHRA Project. All rights reserved.
+
+Source code and documentation in this repository are publicly viewable for inspection, academic review, and evaluation. No permission is granted to reproduce, redistribute, modify, commercialize, or create derivative works except where explicitly permitted by the repository's license or by written permission from the copyright holder.
+
+If you use GATHRA in academic or research work, please provide appropriate attribution to the GATHRA Project and its associated publications.
