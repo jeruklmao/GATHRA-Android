@@ -1,101 +1,92 @@
 # GATHRA Android
 
-GATHRA is a native Indonesian Android pilot for route preview and foreground
-turn-by-turn navigation. The app uses MapLibre and calls one provider-neutral
-NestJS API for routing, place search, reverse geocoding, health, and flood
-hazard snapshots.
+GATHRA Android is the native Indonesian route-preview and foreground-navigation
+application for the GATHRA flood-monitoring pilot. It uses the official GATHRA
+identity, Jetpack Compose, and MapLibre, and calls the provider-neutral GATHRA
+Backend at <https://api.gathra.my.id/>.
 
-The deployed API is [https://api.gathra.my.id/](https://api.gathra.my.id/).
-GraphHopper and Photon are private provider services behind that API; Android
-never connects to either provider directly.
+Android never connects directly to GraphHopper, Photon, PostgreSQL, a GATHRA
+Gateway, or a GATHRA Node.
 
-## Capabilities
+## Current experience
 
-- CAR and MOTORCYCLE route previews with one optional alternative.
-- Map-selected origin and destination coordinates, with reverse geocoding used
-  only to improve display text.
-- Foreground navigation with route progress, rerouting, Indonesian voice
-  prompts, and a location foreground service.
-- Photon-backed autocomplete, search, place lookup, and reverse geocoding for
-  the configured Jakarta–Tangerang pilot region.
-- Sensor-backed flood coverage polygons, route-risk metadata, snapshot
-  synchronization, and runtime-multiplier route exclusion.
-- A Backend-positioned current sensor marker and shared scrollable detail sheet
-  with authoritative water state plus sanitized Gateway connectivity.
+- CAR and MOTORCYCLE route preview with one optional alternative.
+- Map-selected origin and destination coordinates, search, autocomplete,
+  reverse geocoding, and manual selection when location or geocoding fails.
+- Foreground turn-by-turn navigation with route progress, off-route rerouting,
+  Indonesian voice prompts, and a location foreground service.
+- Sensor-backed coverage polygons and Backend-derived flood risk.
+- A sensor marker positioned from the Backend deployment.
+- A shared detail sheet showing water height, effective level, freshness, Node
+  ID, accepted distance, temperature, humidity, Gateway heartbeat state and
+  relative time, radio recency, RSSI/SNR, and sanitized delivery status.
+- Flood-aware route exclusion, alternative ranking, and guarded snapshot
+  revalidation during preview and active navigation.
 
-Production flood observations come from Protocol 3 Nodes through the Gateway
-and PostgreSQL-backed Backend classifier. The public hazard API remains a
-modeled observation, not proof that an area or route is safe. Explicit local
-simulation remains supported for deterministic development.
+At startup, the map fits the geometry of the first usable Backend SENSOR
+coverage snapshot. User interaction, route display, or navigation then owns the
+camera; later refreshes do not recenter it. No fixed city marker or hard-coded
+demo point is shown.
 
-## Architecture
-
-```text
-Android (MapLibre, Compose, MVVM)
-  -> HTTPS NestJS API
-     -> private GraphHopper 11 routing
-     -> private Photon 0.5.0 geocoding
-     -> PostgreSQL sensor telemetry + flood classification
-```
-
-The production flood path is:
+## Data flow
 
 ```text
-GATHRA Node 2.1.1 (LoRa Protocol 3)
-  -> GATHRA Gateway 2.2.0
-  -> Backend PostgreSQL telemetry
-  -> sensor classification
-  -> public /api/v1/flood-hazards
-  -> GraphHopper routing + Android
+GATHRA Node
+  -> LoRa Protocol 3
+GATHRA Gateway
+  -> authenticated Internet ingestion
+GATHRA Backend
+  -> PostgreSQL telemetry and sensor classification
+  -> routing and public APIs
+GATHRA Android
 ```
 
-Android preserves the Backend-provided risk, sensor freshness, reason codes,
-nullable observation/validity timestamps, provenance Node IDs, and runtime
-routing multiplier. `UNKNOWN` means the current condition cannot be
-determined; it never means LOW or safe. A successful HTTP refresh is separate
-from sensor freshness, so a valid response can contain `STALE` or
-`NO_TELEMETRY` polygons.
+Android reads flood polygons from `GET /api/v1/flood-hazards` and sanitized
+current sensor detail from `GET /api/v1/sensors/:nodeId`. It does not expose
+raw distance, battery, protocol flags, sensor history, or Gateway network and
+runtime internals.
 
-The Android app is one Gradle module with immutable UI state, StateFlow, typed
-actions/effects, provider-neutral domain repositories, and a manual
-application-scoped `AppContainer`.
+The Backend-provided `routingMultiplier` is authoritative: 1 has no local
+penalty, values between 0 and 1 penalize, and 0 is a hard exclusion regardless
+of the risk label. Android does not recalculate water height, classification,
+heartbeat health, or routing policy.
 
-See [docs/architecture.md](docs/architecture.md) for component and lifecycle
-boundaries.
+## Flood-safety semantics
 
-## Android builds
+- `UNKNOWN` is not LOW or safe.
+- `STALE` and `NO_TELEMETRY` are not LOW.
+- A successful API response may contain stale or unavailable sensor state.
+- An area outside monitored polygons is not known flood-free.
+- Routing is based on modeled observations and cannot guarantee safety.
 
-The only application build variants are `debug` and `release`. Both default to:
+## Build configuration
+
+Application version: **1.0** (`versionCode` 1). Minimum SDK is 24 and target SDK
+is 36. The only application variants are `debug` and `release`; both default to:
 
 ```text
 https://api.gathra.my.id/
 ```
 
-Build a debug APK with:
+Build and verify with the Android Studio JBR:
 
 ```bash
+JAVA_HOME=/opt/android-studio/jbr ./gradlew testDebugUnitTest
+JAVA_HOME=/opt/android-studio/jbr ./gradlew lintDebug
 JAVA_HOME=/opt/android-studio/jbr ./gradlew assembleDebug
+JAVA_HOME=/opt/android-studio/jbr ./gradlew assembleRelease
+JAVA_HOME=/opt/android-studio/jbr ./gradlew compileDebugAndroidTestKotlin
 ```
 
-Local backend overrides, emulator/device setup, and release differences are
-documented in [docs/development.md](docs/development.md).
+Release assembly is an unsigned compilation gate. Signing and distribution are
+managed outside this repository.
 
-## Backend integration
+See [architecture](docs/architecture.md) and
+[development](docs/development.md) for current boundaries and workflows. The
+Backend contract is maintained in
+[GATHRA-Backend](https://github.com/JerukLMAO/GATHRA-Backend).
 
-The API is maintained independently in
-[JerukLMAO/GATHRA-Backend](https://github.com/JerukLMAO/GATHRA-Backend).
-Its README owns local stack setup, routing and geocoding data, sensor flood
-contracts, explicit flood simulation, and backend quality checks.
-
-## Documentation
-
-- [AGENTS.md](AGENTS.md): repository rules and verification for coding agents.
-- [docs/architecture.md](docs/architecture.md): stable system architecture.
-- [docs/development.md](docs/development.md): Android and end-to-end workflows.
-- [GATHRA-Backend](https://github.com/JerukLMAO/GATHRA-Backend): backend
-  operation and provider data.
-
-OpenStreetMap-derived routing and geocoding data remains subject to
+OpenStreetMap-derived map, routing, and geocoding data remain subject to
 OpenStreetMap attribution and the ODbL.
 
 ---
